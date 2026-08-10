@@ -5,15 +5,14 @@ import '../../core/theme/app_colors.dart';
 
 enum LogoSize { sm, md, lg }
 
-class BajatzuLogo extends StatelessWidget {
-  const BajatzuLogo({
+/// Classic "BAJATZU RESTAURANT" wordmark (text).
+class BajatzuWordmark extends StatelessWidget {
+  const BajatzuWordmark({
     super.key,
     this.size = LogoSize.md,
-    this.tone = LogoTone.def,
   });
 
   final LogoSize size;
-  final LogoTone tone;
 
   @override
   Widget build(BuildContext context) {
@@ -22,37 +21,18 @@ class BajatzuLogo extends StatelessWidget {
       LogoSize.md => (17.0, 5.0, 7.0, 3.2),
       LogoSize.lg => (28.0, 7.2, 8.0, 4.0),
     };
-    final wordColor =
-        tone == LogoTone.light ? AppColors.primaryForeground : AppColors.ink;
-    final subColor = tone == LogoTone.light
-        ? AppColors.primaryForeground.withValues(alpha: 0.72)
-        : AppColors.mutedForeground;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text.rich(
-          TextSpan(
-            style: GoogleFonts.manrope(
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
-              letterSpacing: letterSpacing,
-              color: wordColor,
-              height: 1,
-            ),
-            children: [
-              const TextSpan(text: 'BAJAT'),
-              TextSpan(
-                text: 'ZU',
-                style: GoogleFonts.manrope(
-                  fontSize: fontSize,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: letterSpacing,
-                  color: AppColors.primary,
-                  height: 1,
-                ),
-              ),
-            ],
+        Text(
+          'BAJATZU',
+          style: GoogleFonts.manrope(
+            fontSize: fontSize,
+            fontWeight: FontWeight.w700,
+            letterSpacing: letterSpacing,
+            color: AppColors.ink,
+            height: 1,
           ),
         ),
         SizedBox(height: size == LogoSize.lg ? 8 : 6),
@@ -62,7 +42,7 @@ class BajatzuLogo extends StatelessWidget {
             fontSize: subSize,
             fontWeight: FontWeight.w500,
             letterSpacing: subSpacing,
-            color: subColor,
+            color: AppColors.mutedForeground,
             height: 1,
           ),
         ),
@@ -71,8 +51,44 @@ class BajatzuLogo extends StatelessWidget {
   }
 }
 
-enum LogoTone { def, light }
+/// BAJATZU RESTAURANT wordmark inside a white pill — used everywhere logos appear.
+class BrandLogo extends StatelessWidget {
+  const BrandLogo({
+    super.key,
+    this.size = LogoSize.md,
+    this.height,
+    this.maxWidth,
+  });
 
+  final LogoSize size;
+  /// Kept for call-site compatibility; ignored (wordmark sizes itself).
+  final double? height;
+  /// Kept for call-site compatibility; ignored (wordmark sizes itself).
+  final double? maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final (hPad, vPad) = switch (size) {
+      LogoSize.sm => (12.0, 8.0),
+      LogoSize.md => (16.0, 10.0),
+      LogoSize.lg => (20.0, 14.0),
+    };
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      decoration: BoxDecoration(
+        color: AppColors.card.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: BajatzuWordmark(size: size),
+    );
+  }
+}
+
+/// @Deprecated Prefer [BrandLogo]. Kept as alias for gradual migration.
+typedef BajatzuLogo = BrandLogo;
+
+/// Compact monogram mark used sparingly.
 class LogoMark extends StatelessWidget {
   const LogoMark({
     super.key,

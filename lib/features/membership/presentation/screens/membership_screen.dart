@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -78,12 +77,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeNav = widget.scrollToProfile
-        ? BottomNavTab.profile
-        : BottomNavTab.membership;
-
     return PhoneShell(
-      nav: activeNav,
+      nav: BottomNavTab.membership,
       child: Stack(
         children: [
           SafeArea(
@@ -127,17 +122,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.card,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const BajatzuLogo(size: LogoSize.sm),
-                          ),
+                          const BrandLogo(size: LogoSize.sm),
                           const Spacer(),
                           AppBadge(
                             label: member.status,
@@ -328,45 +313,23 @@ class _MembershipScreenState extends State<MembershipScreen> {
                         ),
                         onPressed: () => context.goNamed(RouteNames.login),
                       ),
-                      const SizedBox(height: 24),
-                      const SectionTitle(title: 'App icon concept'),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          const _AppIconPreview(),
-                          const SizedBox(width: 12),
-                          const _AppIconPreview(),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Text(
-                              'A simplified monogram treatment for the home-screen icon — the full wordmark stays reserved for in-app branding.',
-                              style: GoogleFonts.manrope(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.mutedForeground,
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          if (_editing) _EditProfileSheet(
-            nameCtrl: _nameCtrl,
-            emailCtrl: _emailCtrl,
-            phoneCtrl: _phoneCtrl,
-            saving: _saving,
-            onSave: _save,
-            onCancel: () {
-              if (!_saving) setState(() => _editing = false);
-            },
-          ),
+          if (_editing)
+            _EditProfileSheet(
+              nameCtrl: _nameCtrl,
+              emailCtrl: _emailCtrl,
+              phoneCtrl: _phoneCtrl,
+              saving: _saving,
+              onSave: _save,
+              onCancel: () {
+                if (!_saving) setState(() => _editing = false);
+              },
+            ),
         ],
       ),
     );
@@ -430,40 +393,6 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-/// Matches design: green capsule monogram app icon.
-class _AppIconPreview extends StatelessWidget {
-  const _AppIconPreview();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 72,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Text(
-        'B',
-        style: GoogleFonts.manrope(
-          color: Colors.white,
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          height: 1,
-        ),
-      ),
-    );
-  }
-}
-
 class _EditProfileSheet extends StatelessWidget {
   const _EditProfileSheet({
     required this.nameCtrl,
@@ -483,6 +412,8 @@ class _EditProfileSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
     return Material(
       color: AppColors.ink.withValues(alpha: 0.4),
       child: Column(
@@ -496,7 +427,7 @@ class _EditProfileSheet extends StatelessWidget {
           ),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+            padding: EdgeInsets.fromLTRB(24, 12, 24, 32 + keyboardInset),
             decoration: const BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -504,64 +435,66 @@ class _EditProfileSheet extends StatelessWidget {
             ),
             child: SafeArea(
               top: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(999),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Edit Profile',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.ink,
+                    const SizedBox(height: 20),
+                    const Text(
+                      'Edit Profile',
+                      style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.ink,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Update the details linked to your membership.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.mutedForeground,
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Update the details linked to your membership.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.mutedForeground,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  AppTextField(label: 'Full Name', controller: nameCtrl),
-                  const SizedBox(height: 16),
-                  AppTextField(
-                    label: 'Email',
-                    controller: emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 16),
-                  AppTextField(
-                    label: 'Phone Number',
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 24),
-                  AppButton(
-                    label: 'Save Changes',
-                    loading: saving,
-                    onPressed: onSave,
-                  ),
-                  const SizedBox(height: 10),
-                  AppButton(
-                    label: 'Cancel',
-                    variant: AppButtonVariant.secondary,
-                    onPressed: saving ? null : onCancel,
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    AppTextField(label: 'Full Name', controller: nameCtrl),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      label: 'Email Address',
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+                    AppTextField(
+                      label: 'Phone Number',
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 24),
+                    AppButton(
+                      label: 'Save Changes',
+                      loading: saving,
+                      onPressed: onSave,
+                    ),
+                    const SizedBox(height: 10),
+                    AppButton(
+                      label: 'Cancel',
+                      variant: AppButtonVariant.secondary,
+                      onPressed: saving ? null : onCancel,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

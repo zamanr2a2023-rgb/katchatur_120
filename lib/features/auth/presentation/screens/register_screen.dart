@@ -62,6 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: Column(
           children: [
@@ -74,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     onTap: () => context.goNamed(RouteNames.login),
                   ),
                   const Spacer(),
-                  const BajatzuLogo(size: LogoSize.sm),
+                  const BrandLogo(size: LogoSize.sm),
                   const Spacer(),
                   const SizedBox(width: 40),
                 ],
@@ -82,7 +83,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  32,
+                  24,
+                  48 + MediaQuery.viewInsetsOf(context).bottom * 0.15,
+                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -132,8 +140,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     AppTextField(
                       label: 'Password',
                       controller: _password,
-                      hint: 'Create a password (min. 6 characters)',
+                      hint: 'Minimum 6 characters',
                       obscureText: true,
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Use at least 6 characters for your password.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.mutedForeground,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     AppTextField(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
@@ -31,6 +32,7 @@ class AppTheme {
         elevation: 0,
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.ink,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
       dividerColor: AppColors.border,
     );

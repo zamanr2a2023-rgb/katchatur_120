@@ -57,9 +57,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => context.go(
-                        '${RoutePaths.membership}?section=profile',
-                      ),
+                      onTap: () => context.go(RoutePaths.membership),
                       child: const SizedBox(
                         width: 40,
                         height: 40,
@@ -107,13 +105,6 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            AppBadge(
-                              label: 'Open Today · 18:00 – 23:00',
-                              backgroundColor:
-                                  AppColors.card.withValues(alpha: 0.9),
-                              foregroundColor: AppColors.ink,
-                            ),
-                            const SizedBox(height: 12),
                             const Text(
                               'Welcome to Bajatzu',
                               style: TextStyle(
@@ -129,8 +120,9 @@ class HomeScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.5,
-                                color: AppColors.background
-                                    .withValues(alpha: 0.8),
+                                color: AppColors.background.withValues(
+                                  alpha: 0.8,
+                                ),
                               ),
                             ),
                           ],
@@ -139,17 +131,7 @@ class HomeScreen extends StatelessWidget {
                       Positioned(
                         top: 16,
                         right: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.card.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const BajatzuLogo(size: LogoSize.sm),
-                        ),
+                        child: const BrandLogo(size: LogoSize.sm),
                       ),
                     ],
                   ),
@@ -181,40 +163,59 @@ class HomeScreen extends StatelessWidget {
                             size: 24,
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 6,
                                 children: [
-                                  const Flexible(
-                                    child: Text(
-                                      'My Membership',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 15.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.ink,
-                                      ),
+                                  const Text(
+                                    'My Membership',
+                                    style: TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.ink,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   AppBadge(label: member.status),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 '${member.memberId} · View Membership',
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   color: AppColors.mutedForeground,
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => context.go(
+                                  '${RoutePaths.donate}?section=benefit',
+                                ),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                    '5% Member Benefit',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 4),
                         const Icon(
                           Icons.chevron_right,
                           color: AppColors.mutedForeground,
@@ -224,7 +225,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   AppCard(
-                    onTap: () => context.pushNamed(RouteNames.menu),
+                    onTap: () => context.goNamed(RouteNames.menu),
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
@@ -334,7 +335,7 @@ class HomeScreen extends StatelessWidget {
                         Expanded(
                           child: AppCard(
                             expand: true,
-                            onTap: () => context.pushNamed(RouteNames.menu),
+                            onTap: () => context.goNamed(RouteNames.menu),
                             padding: const EdgeInsets.all(16),
                             child: const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

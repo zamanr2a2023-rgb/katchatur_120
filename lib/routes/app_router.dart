@@ -58,7 +58,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.donate,
         name: RouteNames.donate,
-        builder: (context, state) => const DonateScreen(),
+        builder: (context, state) {
+          final section = state.uri.queryParameters['section'];
+          return DonateScreen(scrollToBenefit: section == 'benefit');
+        },
       ),
     ],
     errorBuilder: (context, state) => Scaffold(

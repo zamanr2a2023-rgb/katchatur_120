@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../data/mock_data.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/logo.dart';
@@ -16,10 +17,35 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen> {
   bool _menuOpen = false;
 
+  void _onSocialTap() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Link will be connected in the final app.',
+          style: TextStyle(fontWeight: FontWeight.w500),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+    );
+  }
+
+  IconData _iconFor(String key) {
+    return switch (key) {
+      'facebook' => Icons.facebook,
+      'google' => Icons.star_outline_rounded,
+      'tripadvisor' => Icons.travel_explore_outlined,
+      _ => Icons.link_outlined,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return PhoneShell(
-      nav: BottomNavTab.home,
+      nav: BottomNavTab.menu,
       child: Stack(
         children: [
           SafeArea(
@@ -29,16 +55,20 @@ class _MenuScreenState extends State<MenuScreen> {
               children: [
                 const Row(
                   children: [
-                    Text(
-                      'Bajatzu',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
+                    Expanded(
+                      child: Text(
+                        'Menu & Socials',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
-                    Spacer(),
-                    BajatzuLogo(size: LogoSize.sm),
+                    SizedBox(width: 12),
+                    BrandLogo(size: LogoSize.sm),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -89,6 +119,76 @@ class _MenuScreenState extends State<MenuScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 28),
+                const SectionTitle(title: 'Stay Connected'),
+                const SizedBox(height: 8),
+                const Text(
+                  'Follow Bajatzu and share your experience.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.mutedForeground,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...socials.map(
+                  (social) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: AppCard(
+                      onTap: _onSocialTap,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              _iconFor(social.icon),
+                              size: 20,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  social.name,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  social.description,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.open_in_new_rounded,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -104,13 +204,6 @@ class _MenuPreview extends StatelessWidget {
   const _MenuPreview({required this.onClose});
 
   final VoidCallback onClose;
-
-  static const items = [
-    ['Chef\'s Tasting Menu', '5 courses · €58'],
-    ['Slow-cooked Lamb', '€26'],
-    ['Seared Sea Bass', '€24'],
-    ['Chocolate & Olive Oil', '€9'],
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +249,7 @@ class _MenuPreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      "The full Bajatzu menu will open here. In the final app this links to the restaurant's live menu.",
+                      "The Bajatzu menu will be available here. In the final app, this button can open the restaurant's live menu.",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
@@ -165,12 +258,12 @@ class _MenuPreview extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    ...items.map(
-                      (item) => Container(
+                    ...List.generate(3, (index) {
+                      return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 12,
+                          vertical: 14,
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.secondary,
@@ -179,26 +272,27 @@ class _MenuPreview extends StatelessWidget {
                         child: Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                item[0],
-                                style: const TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.ink,
+                              child: Container(
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: AppColors.border,
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
                             ),
-                            Text(
-                              item[1],
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: AppColors.mutedForeground,
+                            const SizedBox(width: 24),
+                            Container(
+                              width: 36,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: AppColors.border,
+                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                     const SizedBox(height: 16),
                     AppButton(
                       label: 'Close',

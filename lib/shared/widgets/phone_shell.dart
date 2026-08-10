@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../routes/route_names.dart';
 
-enum BottomNavTab { home, membership, donate, profile }
+enum BottomNavTab { home, membership, menu, donate }
 
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({super.key, required this.active});
@@ -29,18 +29,18 @@ class AppBottomNav extends StatelessWidget {
         path: RoutePaths.membership,
       ),
       (
+        tab: BottomNavTab.menu,
+        label: 'Menu',
+        icon: Icons.restaurant_outlined,
+        activeIcon: Icons.restaurant,
+        path: RoutePaths.menu,
+      ),
+      (
         tab: BottomNavTab.donate,
         label: 'Donate',
         icon: Icons.volunteer_activism_outlined,
         activeIcon: Icons.volunteer_activism,
         path: RoutePaths.donate,
-      ),
-      (
-        tab: BottomNavTab.profile,
-        label: 'Profile',
-        icon: Icons.person_outline,
-        activeIcon: Icons.person,
-        path: '${RoutePaths.membership}?section=profile',
       ),
     ];
 
@@ -87,6 +87,8 @@ class AppBottomNav extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 10.5,
                             fontWeight: FontWeight.w600,

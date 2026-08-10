@@ -24,12 +24,12 @@ class SocialLink {
   const SocialLink({
     required this.name,
     required this.description,
-    required this.url,
+    required this.icon,
   });
 
   final String name;
   final String description;
-  final String url;
+  final String icon;
 }
 
 const member = Member(
@@ -39,7 +39,7 @@ const member = Member(
   phone: '+351 900 000 000',
   status: 'Active',
   memberId: 'BJZ-2048',
-  tier: 'Founding Member',
+  tier: 'Bajatzu Member',
   memberSince: 'Mar 2024',
 );
 
@@ -48,22 +48,17 @@ const donationPresets = [10, 20, 50, 100];
 const socials = [
   SocialLink(
     name: 'Facebook',
-    description: 'News, evenings and events',
-    url: 'https://facebook.com',
+    description: 'Visit our Facebook',
+    icon: 'facebook',
   ),
   SocialLink(
     name: 'Google',
-    description: 'Leave a review',
-    url: 'https://google.com',
+    description: 'Visit our Google page',
+    icon: 'google',
   ),
   SocialLink(
     name: 'TripAdvisor',
-    description: 'Share your visit',
-    url: 'https://tripadvisor.com',
-  ),
-  SocialLink(
-    name: 'Instagram',
-    description: 'Plates, kitchen & atmosphere',
-    url: 'https://instagram.com',
+    description: 'Visit us on TripAdvisor',
+    icon: 'tripadvisor',
   ),
 ];

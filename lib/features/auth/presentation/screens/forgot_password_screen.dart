@@ -47,6 +47,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
           SafeArea(
@@ -76,7 +77,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       ),
                       const Spacer(),
-                      const BajatzuLogo(size: LogoSize.sm),
+                      const BrandLogo(size: LogoSize.sm),
                       const Spacer(),
                       const SizedBox(width: 40),
                     ],
@@ -84,7 +85,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 48, 24, 48),
+                    padding: EdgeInsets.fromLTRB(
+                      24,
+                      48,
+                      24,
+                      48 + MediaQuery.viewInsetsOf(context).bottom * 0.1,
+                    ),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

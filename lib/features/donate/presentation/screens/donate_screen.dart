@@ -9,7 +9,9 @@ import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
 class DonateScreen extends StatefulWidget {
-  const DonateScreen({super.key});
+  const DonateScreen({super.key, this.scrollToBenefit = false});
+
+  final bool scrollToBenefit;
 
   @override
   State<DonateScreen> createState() => _DonateScreenState();
@@ -20,7 +22,9 @@ class _DonateScreenState extends State<DonateScreen> {
   String _custom = '';
   bool _processing = false;
   bool _done = false;
+  bool _claimOpen = false;
   final _customCtrl = TextEditingController();
+  final _benefitKey = GlobalKey();
 
   num? get _finalAmount {
     if (_custom.isNotEmpty) return num.tryParse(_custom);
@@ -29,6 +33,24 @@ class _DonateScreenState extends State<DonateScreen> {
 
   bool get _canDonate =>
       _finalAmount != null && _finalAmount! > 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.scrollToBenefit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _benefitKey.currentContext;
+        if (ctx != null) {
+          Scrollable.ensureVisible(
+            ctx,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+            alignment: 0.15,
+          );
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -334,14 +356,111 @@ class _DonateScreenState extends State<DonateScreen> {
                     color: AppColors.mutedForeground,
                   ),
                 ),
+                const SizedBox(height: 32),
+                KeyedSubtree(
+                  key: _benefitKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionTitle(title: 'Member Benefit'),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primarySoft,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.percent_rounded,
+                                    size: 20,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Enjoy 5% Off',
+                                        style: TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                      SizedBox(height: 6),
+                                      Text(
+                                        'As a Bajatzu member, you receive 5% off when visiting the restaurant.',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.mutedForeground,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'MEMBERS ONLY',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: AppColors.accentForeground,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            AppButton(
+                              label: 'Claim Member Discount',
+                              variant: AppButtonVariant.secondary,
+                              onPressed: () =>
+                                  setState(() => _claimOpen = true),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
+          if (_claimOpen)
+            _MemberDiscountSheet(
+              onClose: () => setState(() => _claimOpen = false),
+              onViewQr: () {
+                setState(() => _claimOpen = false);
+                context.goNamed(RouteNames.membership);
+              },
+            ),
           if (_done)
             _ThankYouOverlay(
               amount: _finalAmount ?? 0,
               onHome: () => context.goNamed(RouteNames.home),
-              onDone: () => setState(() => _done = false),
             ),
         ],
       ),
@@ -370,16 +489,116 @@ class _PayIcon extends StatelessWidget {
   }
 }
 
+class _MemberDiscountSheet extends StatelessWidget {
+  const _MemberDiscountSheet({
+    required this.onClose,
+    required this.onViewQr,
+  });
+
+  final VoidCallback onClose;
+  final VoidCallback onViewQr;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.ink.withValues(alpha: 0.4),
+      child: Column(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: onClose,
+              behavior: HitTestBehavior.opaque,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+            decoration: const BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySoft,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      '5%',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Your 5% Member Discount',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Show your active Bajatzu membership QR code to the restaurant staff to receive your member discount.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: AppColors.mutedForeground,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  AppButton(
+                    label: 'View Membership QR',
+                    onPressed: onViewQr,
+                  ),
+                  const SizedBox(height: 10),
+                  AppButton(
+                    label: 'Close',
+                    variant: AppButtonVariant.secondary,
+                    onPressed: onClose,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ThankYouOverlay extends StatelessWidget {
   const _ThankYouOverlay({
     required this.amount,
     required this.onHome,
-    required this.onDone,
   });
 
   final num amount;
   final VoidCallback onHome;
-  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -466,10 +685,13 @@ class _ThankYouOverlay extends StatelessWidget {
                 const SizedBox(height: 24),
                 AppButton(label: 'Back to Home', onPressed: onHome),
                 const SizedBox(height: 8),
-                AppButton(
-                  label: 'Done',
-                  variant: AppButtonVariant.ghost,
-                  onPressed: onDone,
+                const Text(
+                  'Simulated payment · no charge was made',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.mutedForeground,
+                  ),
                 ),
               ],
             ),
