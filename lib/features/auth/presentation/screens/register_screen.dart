@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -53,9 +54,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
       _loading = true;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    context.goNamed(RouteNames.home);
+
+    try {
+      await AuthService.instance.registerWithMembership(
+        fullName: _name.text,
+        email: _email.text,
+        phone: _phone.text,
+        password: _password.text,
+      );
+      if (!mounted) return;
+      context.goNamed(RouteNames.home);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = AuthService.mapFirebaseErrorToMessage(e);
+        _loading = false;
+      });
+    }
   }
 
   @override

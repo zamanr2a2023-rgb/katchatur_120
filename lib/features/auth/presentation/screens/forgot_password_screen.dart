@@ -2,23 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/logo.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  const ForgotPasswordScreen({super.key, this.initialEmail});
+
+  final String? initialEmail;
 
   @override
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
-  final _email = TextEditingController();
+  late final TextEditingController _email;
   bool _loading = false;
   bool _sent = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _email = TextEditingController(text: widget.initialEmail?.trim() ?? '');
+  }
 
   @override
   void dispose() {
@@ -26,21 +35,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
+  bool _isValidEmail(String value) {
+    final email = value.trim();
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+  }
+
   Future<void> _submit() async {
-    if (!_email.text.contains('@')) {
+    final email = _email.text.trim();
+    if (!_isValidEmail(email)) {
       setState(() => _error = 'Please enter a valid email address.');
       return;
     }
+    if (_loading) return;
+
     setState(() {
       _error = null;
       _loading = true;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _sent = true;
-    });
+
+    try {
+      await AuthService.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _sent = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = AuthService.mapFirebaseErrorToMessage(e);
+      });
+    }
   }
 
   @override
@@ -200,13 +226,24 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        "We've sent password reset instructions to your email address.",
+                      Text(
+                        "We've sent a password reset link to ${_email.text.trim()}.",
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13.5,
                           color: AppColors.mutedForeground,
                           height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'If you do not see it in a few minutes, check your Spam or Junk folder. '
+                        'The email is usually from noreply@...firebaseapp.com.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.mutedForeground,
+                          height: 1.45,
                         ),
                       ),
                       const SizedBox(height: 24),

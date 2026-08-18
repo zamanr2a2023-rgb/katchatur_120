@@ -35,7 +35,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.forgotPassword,
         name: RouteNames.forgotPassword,
-        builder: (context, state) => const ForgotPasswordScreen(),
+        builder: (context, state) {
+          final email = state.uri.queryParameters['email'];
+          return ForgotPasswordScreen(initialEmail: email);
+        },
       ),
       GoRoute(
         path: RoutePaths.home,

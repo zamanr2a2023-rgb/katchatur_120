@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../data/mock_data.dart';
+import '../../../../features/donate/data/donate_config.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/logo.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membership = ref.watch(currentMembershipProvider).asData?.value;
+    final donateConfig =
+        ref.watch(donateConfigProvider).asData?.value ?? DonateConfig.defaults;
+    final firstName = membership?.firstName ?? 'Member';
+    final status = membership?.status ?? 'Active';
+    final memberId = membership?.memberId ?? '—';
+    final benefitLabel =
+        '${donateConfig.memberBenefitPercent}% Member Benefit';
+
     return PhoneShell(
       nav: BottomNavTab.home,
       child: SafeArea(
@@ -31,7 +42,7 @@ class HomeScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome, ${member.firstName}',
+                          'Welcome, $firstName',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -181,12 +192,12 @@ class HomeScreen extends StatelessWidget {
                                       color: AppColors.ink,
                                     ),
                                   ),
-                                  AppBadge(label: member.status),
+                                  AppBadge(label: status),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${member.memberId} · View Membership',
+                                '$memberId · View Membership',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -200,11 +211,12 @@ class HomeScreen extends StatelessWidget {
                                 onTap: () => context.go(
                                   '${RoutePaths.donate}?section=benefit',
                                 ),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 2),
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
                                   child: Text(
-                                    '5% Member Benefit',
-                                    style: TextStyle(
+                                    benefitLabel,
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.primary,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -38,9 +39,20 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _loading = true;
     });
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) return;
-    context.goNamed(RouteNames.home);
+    try {
+      await AuthService.instance.signInWithEmailPassword(
+        email: _email.text,
+        password: _password.text,
+      );
+      if (!mounted) return;
+      context.goNamed(RouteNames.home);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = AuthService.mapFirebaseErrorToMessage(e);
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -145,8 +157,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () =>
-                            context.pushNamed(RouteNames.forgotPassword),
+                        onPressed: () {
+                          final email = _email.text.trim();
+                          context.pushNamed(
+                            RouteNames.forgotPassword,
+                            queryParameters: email.isEmpty
+                                ? const <String, String>{}
+                                : {'email': email},
+                          );
+                        },
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 4,

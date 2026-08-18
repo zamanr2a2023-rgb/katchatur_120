@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../data/mock_data.dart';
+import '../../../../features/donate/data/donate_config.dart';
+import '../../../../features/donate/presentation/screens/stripe_checkout_screen.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/donate_service.dart';
+import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
-class DonateScreen extends StatefulWidget {
+class DonateScreen extends ConsumerStatefulWidget {
   const DonateScreen({super.key, this.scrollToBenefit = false});
 
   final bool scrollToBenefit;
 
   @override
-  State<DonateScreen> createState() => _DonateScreenState();
+  ConsumerState<DonateScreen> createState() => _DonateScreenState();
 }
 
-class _DonateScreenState extends State<DonateScreen> {
-  int? _amount = 20;
+class _DonateScreenState extends ConsumerState<DonateScreen> {
+  int? _amount = DonateConfig.defaults.defaultAmount;
   String _custom = '';
   bool _processing = false;
   bool _done = false;
@@ -31,8 +35,7 @@ class _DonateScreenState extends State<DonateScreen> {
     return _amount;
   }
 
-  bool get _canDonate =>
-      _finalAmount != null && _finalAmount! > 0;
+  bool get _canDonate => _finalAmount != null && _finalAmount! > 0;
 
   @override
   void initState() {
@@ -58,18 +61,58 @@ class _DonateScreenState extends State<DonateScreen> {
     super.dispose();
   }
 
-  Future<void> _pay() async {
+  Future<void> _pay(DonateConfig config) async {
+    if (!_canDonate) return;
     setState(() => _processing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (!mounted) return;
-    setState(() {
-      _processing = false;
-      _done = true;
-    });
+
+    try {
+      final session = await DonateService.instance.createCheckoutSession(
+        amount: _finalAmount!,
+        currency: config.currency,
+      );
+      if (!mounted) return;
+      setState(() => _processing = false);
+
+      final result = await Navigator.of(context).push<(String, String)?>(
+        MaterialPageRoute(
+          builder: (_) => StripeCheckoutScreen(checkoutUrl: session.url),
+        ),
+      );
+      if (!mounted || result == null || result.$1 != 'success') return;
+
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _processing = false;
+        _done = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _processing = false);
+      _showMessage(DonateService.mapPaymentError(e));
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final configAsync = ref.watch(donateConfigProvider);
+    final config = configAsync.asData?.value ?? DonateConfig.defaults;
+
     return PhoneShell(
       nav: BottomNavTab.donate,
       child: Stack(
@@ -124,18 +167,18 @@ class _DonateScreenState extends State<DonateScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  'Support Our Chef',
-                  style: TextStyle(
+                Text(
+                  config.title,
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppColors.ink,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'If you enjoyed your experience at Bajatzu, you can show your appreciation with a donation.',
-                  style: TextStyle(
+                Text(
+                  config.description,
+                  style: const TextStyle(
                     fontSize: 13.5,
                     color: AppColors.mutedForeground,
                     height: 1.5,
@@ -147,7 +190,7 @@ class _DonateScreenState extends State<DonateScreen> {
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: donationPresets.length,
+                  itemCount: config.presets.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
@@ -155,7 +198,7 @@ class _DonateScreenState extends State<DonateScreen> {
                     childAspectRatio: 2.1,
                   ),
                   itemBuilder: (context, index) {
-                    final value = donationPresets[index];
+                    final value = config.presets[index];
                     final selected = _custom.isEmpty && _amount == value;
                     return Material(
                       color: selected
@@ -180,7 +223,7 @@ class _DonateScreenState extends State<DonateScreen> {
                             ),
                           ),
                           child: Text(
-                            '€$value',
+                            '${config.currency}$value',
                             style: TextStyle(
                               fontSize: 19,
                               fontWeight: FontWeight.w700,
@@ -227,9 +270,9 @@ class _DonateScreenState extends State<DonateScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Text(
-                        '€',
-                        style: TextStyle(
+                      Text(
+                        config.currency,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.mutedForeground,
@@ -276,25 +319,25 @@ class _DonateScreenState extends State<DonateScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          _PayIcon(),
-                          SizedBox(width: 12),
+                          const _PayIcon(),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Secure payment with SumUp',
-                                  style: TextStyle(
+                                  'Secure payment with ${config.paymentProvider}',
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                     color: AppColors.ink,
                                   ),
                                 ),
                                 Text(
-                                  'Card details are handled by SumUp, never by Bajatzu.',
-                                  style: TextStyle(
+                                  config.paymentSubtitle,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.mutedForeground,
                                   ),
@@ -326,7 +369,7 @@ class _DonateScreenState extends State<DonateScreen> {
                             ),
                             const Spacer(),
                             Text(
-                              '€${_canDonate ? _finalAmount : 0}',
+                              '${config.currency}${_canDonate ? _finalAmount : 0}',
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
@@ -342,16 +385,16 @@ class _DonateScreenState extends State<DonateScreen> {
                 const SizedBox(height: 16),
                 AppButton(
                   label: _processing
-                      ? 'Contacting SumUp'
-                      : 'Donate with SumUp',
+                      ? 'Contacting ${config.paymentProvider}'
+                      : 'Donate with ${config.paymentProvider}',
                   loading: _processing,
-                  onPressed: _canDonate ? _pay : null,
+                  onPressed: _canDonate ? () => _pay(config) : null,
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Simulated payment · no charge is made in this prototype',
+                Text(
+                  config.paymentDisclaimer,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11.5,
                     color: AppColors.mutedForeground,
                   ),
@@ -386,23 +429,23 @@ class _DonateScreenState extends State<DonateScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                const Expanded(
+                                Expanded(
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Enjoy 5% Off',
-                                        style: TextStyle(
+                                        config.memberBenefitTitle,
+                                        style: const TextStyle(
                                           fontSize: 17,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.ink,
                                         ),
                                       ),
-                                      SizedBox(height: 6),
+                                      const SizedBox(height: 6),
                                       Text(
-                                        'As a Bajatzu member, you receive 5% off when visiting the restaurant.',
-                                        style: TextStyle(
+                                        config.memberBenefitDescription,
+                                        style: const TextStyle(
                                           fontSize: 13,
                                           color: AppColors.mutedForeground,
                                           height: 1.5,
@@ -450,17 +493,23 @@ class _DonateScreenState extends State<DonateScreen> {
             ),
           ),
           if (_claimOpen)
-            _MemberDiscountSheet(
-              onClose: () => setState(() => _claimOpen = false),
-              onViewQr: () {
-                setState(() => _claimOpen = false);
-                context.goNamed(RouteNames.membership);
-              },
+            Positioned.fill(
+              child: _MemberDiscountSheet(
+                percent: config.memberBenefitPercent,
+                onClose: () => setState(() => _claimOpen = false),
+                onViewQr: () {
+                  setState(() => _claimOpen = false);
+                  context.goNamed(RouteNames.membership);
+                },
+              ),
             ),
           if (_done)
-            _ThankYouOverlay(
-              amount: _finalAmount ?? 0,
-              onHome: () => context.goNamed(RouteNames.home),
+            Positioned.fill(
+              child: _ThankYouOverlay(
+                amount: _finalAmount ?? 0,
+                currency: config.currency,
+                onHome: () => context.goNamed(RouteNames.home),
+              ),
             ),
         ],
       ),
@@ -491,10 +540,12 @@ class _PayIcon extends StatelessWidget {
 
 class _MemberDiscountSheet extends StatelessWidget {
   const _MemberDiscountSheet({
+    required this.percent,
     required this.onClose,
     required this.onViewQr,
   });
 
+  final int percent;
   final VoidCallback onClose;
   final VoidCallback onViewQr;
 
@@ -541,9 +592,9 @@ class _MemberDiscountSheet extends StatelessWidget {
                       color: AppColors.primarySoft,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      '5%',
-                      style: TextStyle(
+                    child: Text(
+                      '$percent%',
+                      style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primary,
@@ -551,10 +602,10 @@ class _MemberDiscountSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Your 5% Member Discount',
+                  Text(
+                    'Your $percent% Member Discount',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w700,
                       color: AppColors.ink,
@@ -591,111 +642,144 @@ class _MemberDiscountSheet extends StatelessWidget {
   }
 }
 
-class _ThankYouOverlay extends StatelessWidget {
+class _ThankYouOverlay extends StatefulWidget {
   const _ThankYouOverlay({
     required this.amount,
+    required this.currency,
     required this.onHome,
   });
 
   final num amount;
+  final String currency;
   final VoidCallback onHome;
+
+  @override
+  State<_ThankYouOverlay> createState() => _ThankYouOverlayState();
+}
+
+class _ThankYouOverlayState extends State<_ThankYouOverlay> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) FocusManager.instance.primaryFocus?.unfocus();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.ink.withValues(alpha: 0.45),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    size: 36,
-                    color: AppColors.primaryForeground,
-                  ),
+      child: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - 40,
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Thank You!',
-                  style: TextStyle(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Thank you for supporting the chef and the Bajatzu team.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: AppColors.mutedForeground,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Donation Amount',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.mutedForeground,
-                        ),
+                child: Center(
+                  child: GestureDetector(
+                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      const Spacer(),
-                      Text(
-                        '€$amount',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 72,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.check,
+                              size: 36,
+                              color: AppColors.primaryForeground,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Thank You!',
+                            style: TextStyle(
+                              fontSize: 23,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Thank you for supporting the chef and the Bajatzu team.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: AppColors.mutedForeground,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.secondary,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Donation Amount',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.mutedForeground,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${widget.currency}${widget.amount}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          AppButton(
+                            label: 'Back to Home',
+                            onPressed: widget.onHome,
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Your Stripe payment was received. Thank you for supporting the chef.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.mutedForeground,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                AppButton(label: 'Back to Home', onPressed: onHome),
-                const SizedBox(height: 8),
-                const Text(
-                  'Simulated payment · no charge was made',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: AppColors.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

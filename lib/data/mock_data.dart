@@ -20,18 +20,6 @@ class Member {
   final String memberSince;
 }
 
-class SocialLink {
-  const SocialLink({
-    required this.name,
-    required this.description,
-    required this.icon,
-  });
-
-  final String name;
-  final String description;
-  final String icon;
-}
-
 const member = Member(
   firstName: 'John',
   fullName: 'John Doe',
@@ -42,23 +30,3 @@ const member = Member(
   tier: 'Bajatzu Member',
   memberSince: 'Mar 2024',
 );
-
-const donationPresets = [10, 20, 50, 100];
-
-const socials = [
-  SocialLink(
-    name: 'Facebook',
-    description: 'Visit our Facebook',
-    icon: 'facebook',
-  ),
-  SocialLink(
-    name: 'Google',
-    description: 'Visit our Google page',
-    icon: 'google',
-  ),
-  SocialLink(
-    name: 'TripAdvisor',
-    description: 'Visit us on TripAdvisor',
-    icon: 'tripadvisor',
-  ),
-];

@@ -11,6 +11,7 @@ class AppTextField extends StatefulWidget {
     this.hint,
     this.errorText,
     this.obscureText = false,
+    this.readOnly = false,
     this.keyboardType,
     this.prefixIcon,
     this.onChanged,
@@ -22,6 +23,7 @@ class AppTextField extends StatefulWidget {
   final String? hint;
   final String? errorText;
   final bool obscureText;
+  final bool readOnly;
   final TextInputType? keyboardType;
   final IconData? prefixIcon;
   final ValueChanged<String>? onChanged;
@@ -78,6 +80,8 @@ class _AppTextFieldState extends State<AppTextField> {
             focusNode: _focus,
             controller: widget.controller,
             onChanged: widget.onChanged,
+            readOnly: widget.readOnly,
+            enableInteractiveSelection: !widget.readOnly,
             obscureText: isPassword && !_reveal,
             keyboardType: widget.keyboardType,
             autofillHints: widget.autofillHints,
@@ -85,7 +89,9 @@ class _AppTextFieldState extends State<AppTextField> {
             style: GoogleFonts.manrope(
               fontSize: 15,
               fontWeight: FontWeight.w500,
-              color: AppColors.ink,
+              color: widget.readOnly
+                  ? AppColors.mutedForeground
+                  : AppColors.ink,
               height: 1.3,
             ),
             decoration: InputDecoration(
@@ -98,7 +104,9 @@ class _AppTextFieldState extends State<AppTextField> {
                 height: 1.3,
               ),
               filled: true,
-              fillColor: AppColors.card,
+              fillColor: widget.readOnly
+                  ? AppColors.secondary
+                  : AppColors.card,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,

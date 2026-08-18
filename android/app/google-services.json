@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "254110776760",
+    "project_id": "bajatzu-51d09",
+    "storage_bucket": "bajatzu-51d09.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:254110776760:android:72964265d8c9cd0874634d",
+        "android_client_info": {
+          "package_name": "com.bajatzu.bajatzu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCnlJMnvrElhb5b8EhGNKbun5XBL_VJk4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
