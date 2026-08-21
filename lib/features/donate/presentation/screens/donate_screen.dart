@@ -130,7 +130,7 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
                       fit: StackFit.expand,
                       children: [
                         Image.asset(
-                          'assets/images/chef.jpg',
+                          'assets/images/donate_banner.png',
                           fit: BoxFit.cover,
                         ),
                         DecoratedBox(

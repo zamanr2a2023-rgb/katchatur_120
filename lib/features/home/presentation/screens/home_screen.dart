@@ -83,71 +83,9 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: SizedBox(
-                  height: 224,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        'assets/images/interior.jpg',
-                        fit: BoxFit.cover,
-                      ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              AppColors.ink.withValues(alpha: 0.25),
-                              AppColors.ink.withValues(alpha: 0.85),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: 20,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Welcome to Bajatzu',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.background,
-                                height: 1.15,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'A table, a story and a chef who cooks for you personally. Thank you for being part of our house.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                height: 1.5,
-                                color: AppColors.background.withValues(
-                                  alpha: 0.8,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        top: 16,
-                        right: 16,
-                        child: const BrandLogo(size: LogoSize.sm),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: _HomeBannerCarousel(),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
@@ -242,7 +180,7 @@ class HomeScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         Image.asset(
-                          'assets/images/dish.jpg',
+                          'assets/images/home_dish.png',
                           height: 128,
                           width: double.infinity,
                           fit: BoxFit.cover,
@@ -321,7 +259,7 @@ class HomeScreen extends ConsumerWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Support Our Chef',
+                                      'Donate to the chef',
                                       style: TextStyle(
                                         fontSize: 14.5,
                                         fontWeight: FontWeight.w700,
@@ -389,6 +327,118 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeBannerCarousel extends StatefulWidget {
+  const _HomeBannerCarousel();
+
+  static const _images = [
+    'assets/images/home_interior_1.png',
+    'assets/images/home_interior_2.png',
+    'assets/images/home_interior_3.png',
+    'assets/images/home_interior_4.png',
+  ];
+
+  @override
+  State<_HomeBannerCarousel> createState() => _HomeBannerCarouselState();
+}
+
+class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
+  int _index = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: SizedBox(
+        height: 224,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ColoredBox(color: AppColors.ink),
+            PageView.builder(
+              itemCount: _HomeBannerCarousel._images.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (context, i) {
+                return Image.asset(
+                  _HomeBannerCarousel._images[i],
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                );
+              },
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.ink.withValues(alpha: 0.25),
+                    AppColors.ink.withValues(alpha: 0.85),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 20,
+              right: 20,
+              bottom: 20,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Welcome to Bajatzu',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.background,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'A table, a story and a chef who cooks for you personally. Thank you for being part of our house.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.5,
+                      color: AppColors.background.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: List.generate(
+                      _HomeBannerCarousel._images.length,
+                      (i) {
+                        final active = i == _index;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          margin: const EdgeInsets.only(right: 6),
+                          width: active ? 16 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: AppColors.background.withValues(
+                              alpha: active ? 1 : 0.45,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Positioned(
+              top: 16,
+              right: 16,
+              child: BrandLogo(size: LogoSize.sm),
             ),
           ],
         ),

@@ -26,7 +26,7 @@ class DonateConfig {
   final String memberBenefitDescription;
 
   static const defaults = DonateConfig(
-    title: 'Support Our Chef',
+    title: 'Donate to the chef',
     description:
         'If you enjoyed your experience at Bajatzu, you can show your appreciation with a donation.',
     currency: '€',

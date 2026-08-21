@@ -160,7 +160,7 @@ class _MenuBody extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Image.asset(
-                  'assets/images/dish.jpg',
+                  'assets/images/home_dish.png',
                   height: 176,
                   width: double.infinity,
                   fit: BoxFit.cover,
