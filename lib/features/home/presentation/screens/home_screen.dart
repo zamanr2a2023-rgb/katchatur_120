@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/donate/data/donate_config.dart';
+import '../../../../features/menu/data/menu_slider_images.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/auto_image_carousel.dart';
 import '../../../../shared/widgets/logo.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
@@ -179,11 +183,9 @@ class HomeScreen extends ConsumerWidget {
                     clipBehavior: Clip.antiAlias,
                     child: Column(
                       children: [
-                        Image.asset(
-                          'assets/images/home_dish.png',
-                          height: 128,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                        AutoImageCarousel(
+                          images: MenuSliderImages.images,
+                          height: 180,
                         ),
                         Padding(
                           padding: const EdgeInsets.all(16),
@@ -350,7 +352,44 @@ class _HomeBannerCarousel extends StatefulWidget {
 }
 
 class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
+  static const _autoInterval = Duration(seconds: 8);
+
   int _index = 0;
+  late final PageController _pageController;
+  Timer? _autoTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoPlay();
+  }
+
+  void _startAutoPlay() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(_autoInterval, (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final count = _HomeBannerCarousel._images.length;
+      final next = (_index + 1) % count;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _onPageChanged(int i) {
+    setState(() => _index = i);
+    _startAutoPlay();
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -363,8 +402,9 @@ class _HomeBannerCarouselState extends State<_HomeBannerCarousel> {
           children: [
             const ColoredBox(color: AppColors.ink),
             PageView.builder(
+              controller: _pageController,
               itemCount: _HomeBannerCarousel._images.length,
-              onPageChanged: (i) => setState(() => _index = i),
+              onPageChanged: _onPageChanged,
               itemBuilder: (context, i) {
                 return Image.asset(
                   _HomeBannerCarousel._images[i],

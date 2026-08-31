@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/menu/data/app_links_config.dart';
+import '../../../../features/menu/data/menu_slider_images.dart';
 import '../../../../features/menu/presentation/screens/menu_webview_screen.dart';
 import '../../../../services/app_links_service.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/auto_image_carousel.dart';
 import '../../../../shared/widgets/logo.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
@@ -159,11 +161,9 @@ class _MenuBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.asset(
-                  'assets/images/home_dish.png',
+                AutoImageCarousel(
+                  images: MenuSliderImages.images,
                   height: 176,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
                 ),
                 Padding(
                   padding: const EdgeInsets.all(20),
