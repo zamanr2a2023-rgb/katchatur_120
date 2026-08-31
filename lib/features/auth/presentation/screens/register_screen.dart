@@ -56,20 +56,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await AuthService.instance.registerWithMembership(
-        fullName: _name.text,
-        email: _email.text,
-        phone: _phone.text,
-        password: _password.text,
-      );
+      await AuthService.instance
+          .registerWithMembership(
+            fullName: _name.text,
+            email: _email.text,
+            phone: _phone.text,
+            password: _password.text,
+          )
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       context.goNamed(RouteNames.home);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = AuthService.mapFirebaseErrorToMessage(e);
-        _loading = false;
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

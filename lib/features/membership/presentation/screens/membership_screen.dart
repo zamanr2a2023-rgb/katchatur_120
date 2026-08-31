@@ -108,6 +108,23 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
     return profile.copyWith(email: authEmail);
   }
 
+  Future<void> _logout() async {
+    await AuthService.instance.signOut();
+    if (!mounted) return;
+    context.goNamed(RouteNames.login);
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final deleted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _DeleteAccountDialog(),
+    );
+    if (deleted == true && mounted) {
+      context.goNamed(RouteNames.login);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final membershipAsync = ref.watch(currentMembershipProvider);
@@ -143,11 +160,8 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
                 });
               }
             },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
+            onLogout: _logout,
+            onDeleteAccount: _confirmDeleteAccount,
           );
         },
         error: (_, _) {
@@ -181,11 +195,8 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
                 });
               }
             },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
+            onLogout: _logout,
+            onDeleteAccount: _confirmDeleteAccount,
           );
         },
         data: (profile) {
@@ -216,11 +227,8 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
                 });
               }
             },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
+            onLogout: _logout,
+            onDeleteAccount: _confirmDeleteAccount,
           );
         },
       ),
@@ -242,6 +250,7 @@ class _MembershipBody extends StatelessWidget {
     required this.onSave,
     required this.onCancelEdit,
     required this.onLogout,
+    required this.onDeleteAccount,
   });
 
   final MemberProfile profile;
@@ -256,6 +265,7 @@ class _MembershipBody extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onCancelEdit;
   final Future<void> Function() onLogout;
+  final Future<void> Function() onDeleteAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -489,6 +499,17 @@ class _MembershipBody extends StatelessWidget {
                         color: AppColors.mutedForeground,
                       ),
                       onPressed: onLogout,
+                    ),
+                    const SizedBox(height: 8),
+                    AppButton(
+                      label: 'Delete Account',
+                      variant: AppButtonVariant.destructive,
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        size: 17,
+                        color: AppColors.destructive,
+                      ),
+                      onPressed: onDeleteAccount,
                     ),
                   ],
                 ),
@@ -729,6 +750,117 @@ class _EditProfileSheet extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DeleteAccountDialog extends StatefulWidget {
+  const _DeleteAccountDialog();
+
+  @override
+  State<_DeleteAccountDialog> createState() => _DeleteAccountDialogState();
+}
+
+class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
+  final _password = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_password.text.isEmpty) {
+      setState(() => _error = 'Enter your password to delete this account.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await AuthService.instance
+          .deleteAccount(password: _password.text)
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = AuthService.mapFirebaseErrorToMessage(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.card,
+      title: const Text(
+        'Delete account',
+        style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This permanently deletes your Bajatzu membership and sign-in. This cannot be undone.',
+              style: TextStyle(
+                fontSize: 13.5,
+                color: AppColors.mutedForeground,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AppTextField(
+              label: 'Password',
+              controller: _password,
+              hint: 'Enter your password',
+              obscureText: true,
+              prefixIcon: Icons.lock_outline_rounded,
+              autofillHints: const [AutofillHints.password],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(
+                  color: AppColors.destructive,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text(
+                  'Delete',
+                  style: TextStyle(
+                    color: AppColors.destructive,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

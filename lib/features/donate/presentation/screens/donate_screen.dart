@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/donate/data/donate_config.dart';
-import '../../../../features/donate/presentation/screens/stripe_checkout_screen.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../services/donate_service.dart';
 import '../../../../shared/providers/app_providers.dart';
@@ -71,39 +71,57 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
         currency: config.currency,
       );
       if (!mounted) return;
+
+      final uri = Uri.parse(session.url);
+      var opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!opened) {
+        opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      if (!opened) {
+        throw StateError('Could not open Stripe checkout.');
+      }
+      if (!mounted) return;
+
+      final paid = await DonateService.instance.confirmDonation(session.sessionId);
+      if (!mounted) return;
+
+      if (paid) {
+        FocusScope.of(context).unfocus();
+        setState(() {
+          _processing = false;
+          _done = true;
+        });
+        return;
+      }
+
       setState(() => _processing = false);
-
-      final result = await Navigator.of(context).push<(String, String)?>(
-        MaterialPageRoute(
-          builder: (_) => StripeCheckoutScreen(checkoutUrl: session.url),
-        ),
-      );
-      if (!mounted || result == null || result.$1 != 'success') return;
-
-      FocusScope.of(context).unfocus();
-      setState(() {
-        _processing = false;
-        _done = true;
-      });
+      await _showMessage('Payment was not completed. You can try again.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
-      _showMessage(DonateService.mapPaymentError(e));
+      await _showMessage(DonateService.mapPaymentError(e));
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+  Future<void> _showMessage(String message) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text(
+          'Donation',
+          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
+        ),
         content: Text(
           message,
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: const TextStyle(color: AppColors.mutedForeground, height: 1.4),
         ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.ink,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }

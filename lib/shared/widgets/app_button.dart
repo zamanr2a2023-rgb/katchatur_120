@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_colors.dart';
 
-enum AppButtonVariant { primary, secondary, ghost, dark }
+enum AppButtonVariant { primary, secondary, ghost, dark, destructive }
 
 class AppButton extends StatelessWidget {
   const AppButton({
@@ -46,6 +46,11 @@ class AppButton extends StatelessWidget {
       AppButtonVariant.dark => (
           AppColors.ink,
           AppColors.background,
+          null,
+        ),
+      AppButtonVariant.destructive => (
+          Colors.transparent,
+          AppColors.destructive,
           null,
         ),
     };

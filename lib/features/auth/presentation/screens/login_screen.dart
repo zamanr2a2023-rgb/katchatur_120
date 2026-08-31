@@ -40,18 +40,21 @@ class _LoginScreenState extends State<LoginScreen> {
       _loading = true;
     });
     try {
-      await AuthService.instance.signInWithEmailPassword(
-        email: _email.text,
-        password: _password.text,
-      );
+      await AuthService.instance
+          .signInWithEmailPassword(
+            email: _email.text,
+            password: _password.text,
+          )
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       context.goNamed(RouteNames.home);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = AuthService.mapFirebaseErrorToMessage(e);
-        _loading = false;
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

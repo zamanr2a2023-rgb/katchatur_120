@@ -172,6 +172,14 @@ class MembershipService {
     }
   }
 
+  Future<void> deleteCurrentMembership() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('No signed-in user.');
+    }
+    await _users.doc(user.uid).delete().timeout(const Duration(seconds: 8));
+  }
+
   String _generateMemberId(String uid, DateTime now) {
     final seed = uid.hashCode.abs() ^ now.millisecondsSinceEpoch;
     final number = (seed % 9000) + 1000;

@@ -79,65 +79,103 @@ exports.createCheckoutSession = onCall(
       throw new HttpsError("unauthenticated", "Please sign in to donate.");
     }
 
-    const stripe = new Stripe(stripeSecret.value());
-    const amountEur = Number(request.data?.amount);
-    if (!Number.isFinite(amountEur)) {
-      throw new HttpsError("invalid-argument", "Enter a valid donation amount.");
-    }
-    if (amountEur < MIN_DONATION_EUR || amountEur > MAX_DONATION_EUR) {
-      throw new HttpsError(
-        "invalid-argument",
-        `Donation must be between €${MIN_DONATION_EUR} and €${MAX_DONATION_EUR}.`,
-      );
-    }
-    // For now we validate/allow EUR only (donate UI uses €).
-    const currency = toStripeCurrency(request.data?.currency);
-    if (currency !== "eur") {
-      throw new HttpsError("invalid-argument", "Only EUR donations are allowed.");
-    }
-    const amount = toUnitAmount(amountEur);
-    const user = request.auth;
+    try {
+      const secretKey = `${stripeSecret.value() || ""}`.trim();
+      if (!secretKey || secretKey.includes("YOUR_STRIPE")) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Stripe is not configured yet. Add your Stripe secret key.",
+        );
+      }
+      const keyPrefix = secretKey.slice(0, 8);
+      if (!/^sk_(test|live)_/.test(secretKey) && !/^rk_(test|live)_/.test(secretKey)) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Wrong Stripe key (starts with "${keyPrefix}"). Copy Secret key from Stripe Dashboard → Developers → API keys → Reveal. It must start with sk_test_ or sk_live_.`,
+        );
+      }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      success_url: SUCCESS_URL,
-      cancel_url: CANCEL_URL,
-      customer_email: user.token.email || undefined,
-      line_items: [
-        {
-          quantity: 1,
-          price_data: {
-            currency,
-            unit_amount: amount,
-            product_data: {
-              name: "Bajatzu chef donation",
-              description: "Support the Bajatzu kitchen team",
+      const stripe = new Stripe(secretKey);
+      const amountEur = Number(request.data?.amount);
+      if (!Number.isFinite(amountEur)) {
+        throw new HttpsError("invalid-argument", "Enter a valid donation amount.");
+      }
+      if (amountEur < MIN_DONATION_EUR || amountEur > MAX_DONATION_EUR) {
+        throw new HttpsError(
+          "invalid-argument",
+          `Donation must be between €${MIN_DONATION_EUR} and €${MAX_DONATION_EUR}.`,
+        );
+      }
+      const currency = toStripeCurrency(request.data?.currency);
+      if (currency !== "eur") {
+        throw new HttpsError("invalid-argument", "Only EUR donations are allowed.");
+      }
+      const amount = toUnitAmount(amountEur);
+      const user = request.auth;
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        success_url: SUCCESS_URL,
+        cancel_url: CANCEL_URL,
+        customer_email: user.token.email || undefined,
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency,
+              unit_amount: amount,
+              product_data: {
+                name: "Bajatzu chef donation",
+                description: "Support the Bajatzu kitchen team",
+              },
             },
           },
+        ],
+        metadata: {
+          uid: user.uid,
+          email: user.token.email || "",
+          displayName: user.token.name || "",
         },
-      ],
-      metadata: {
-        uid: user.uid,
-        email: user.token.email || "",
-        displayName: user.token.name || "",
-      },
-    });
+      });
 
-    await saveDonation({
-      sessionId: session.id,
-      uid: user.uid,
-      email: user.token.email || "",
-      displayName: user.token.name || "",
-      amount: amount / 100,
-      currency,
-      status: "pending",
-    });
+      try {
+        await saveDonation({
+          sessionId: session.id,
+          uid: user.uid,
+          email: user.token.email || "",
+          displayName: user.token.name || "",
+          amount: amount / 100,
+          currency,
+          status: "pending",
+        });
+      } catch (firestoreError) {
+        console.error("saveDonation failed", firestoreError);
+      }
 
-    return {
-      sessionId: session.id,
-      url: session.url,
-    };
+      if (!session.url) {
+        throw new HttpsError("internal", "Stripe did not return a checkout URL.");
+      }
+
+      return {
+        sessionId: session.id,
+        url: session.url,
+      };
+    } catch (error) {
+      if (error instanceof HttpsError) throw error;
+      console.error("createCheckoutSession failed", error);
+      const message = `${error?.message || ""}`;
+      if (/invalid api key|invalid key|no api key/i.test(message)) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Wrong Stripe key. Use the Secret key from Stripe Dashboard (starts with sk_test_ or sk_live_), not the publishable key.",
+        );
+      }
+      throw new HttpsError(
+        "internal",
+        message || "Could not start Stripe checkout. Please try again.",
+      );
+    }
   }
 );
 
