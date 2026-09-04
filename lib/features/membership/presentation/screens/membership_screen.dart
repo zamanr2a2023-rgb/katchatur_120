@@ -64,6 +64,13 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
   }
 
   Future<void> _save() async {
+    if (!AuthService.instance.isSignedIn) {
+      if (!mounted) return;
+      context.go(
+        '${RoutePaths.login}?redirect=${Uri.encodeComponent(RoutePaths.membership)}',
+      );
+      return;
+    }
     setState(() {
       _saving = true;
       _saveError = null;
@@ -111,119 +118,118 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
   @override
   Widget build(BuildContext context) {
     final membershipAsync = ref.watch(currentMembershipProvider);
+    final isSignedIn = AuthService.instance.isSignedIn;
+
+    Widget guestSignIn() {
+      return _ErrorState(
+        message: 'Please sign in to view your membership.',
+        onRetry: () => context.go(
+          '${RoutePaths.login}?redirect=${Uri.encodeComponent(RoutePaths.membership)}',
+        ),
+        retryLabel: 'Sign In',
+      );
+    }
 
     return PhoneShell(
       nav: BottomNavTab.membership,
-      child: membershipAsync.when(
-        skipLoadingOnReload: true,
-        loading: () {
-          final user = AuthService.instance.currentUser;
-          if (user == null) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final profile = _withAuthEmail(
-            MembershipService.instance.profileFromAuth(user),
-          );
-          return _MembershipBody(
-            profile: profile,
-            profileKey: _profileKey,
-            editing: _editing,
-            saving: _saving,
-            saveError: _saveError,
-            nameCtrl: _nameCtrl,
-            emailCtrl: _emailCtrl,
-            phoneCtrl: _phoneCtrl,
-            onEdit: () => _startEditing(profile),
-            onSave: _save,
-            onCancelEdit: () {
-              if (!_saving) {
-                setState(() {
-                  _editing = false;
-                  _saveError = null;
-                });
-              }
-            },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
-          );
-        },
-        error: (_, _) {
-          final user = AuthService.instance.currentUser;
-          if (user == null) {
-            return _ErrorState(
-              message: 'Please sign in to view your membership.',
-              onRetry: () => context.goNamed(RouteNames.login),
-              retryLabel: 'Go to Login',
-            );
-          }
-          final profile = _withAuthEmail(
-            MembershipService.instance.profileFromAuth(user),
-          );
-          return _MembershipBody(
-            profile: profile,
-            profileKey: _profileKey,
-            editing: _editing,
-            saving: _saving,
-            saveError: _saveError,
-            nameCtrl: _nameCtrl,
-            emailCtrl: _emailCtrl,
-            phoneCtrl: _phoneCtrl,
-            onEdit: () => _startEditing(profile),
-            onSave: _save,
-            onCancelEdit: () {
-              if (!_saving) {
-                setState(() {
-                  _editing = false;
-                  _saveError = null;
-                });
-              }
-            },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
-          );
-        },
-        data: (profile) {
-          if (profile == null) {
-            return _ErrorState(
-              message: 'Please sign in to view your membership.',
-              onRetry: () => context.goNamed(RouteNames.login),
-              retryLabel: 'Go to Login',
-            );
-          }
-          final liveProfile = _withAuthEmail(profile);
-          return _MembershipBody(
-            profile: liveProfile,
-            profileKey: _profileKey,
-            editing: _editing,
-            saving: _saving,
-            saveError: _saveError,
-            nameCtrl: _nameCtrl,
-            emailCtrl: _emailCtrl,
-            phoneCtrl: _phoneCtrl,
-            onEdit: () => _startEditing(liveProfile),
-            onSave: _save,
-            onCancelEdit: () {
-              if (!_saving) {
-                setState(() {
-                  _editing = false;
-                  _saveError = null;
-                });
-              }
-            },
-            onLogout: () async {
-              await AuthService.instance.signOut();
-              if (!context.mounted) return;
-              context.goNamed(RouteNames.login);
-            },
-          );
-        },
-      ),
+      child: !isSignedIn
+          ? guestSignIn()
+          : membershipAsync.when(
+              skipLoadingOnReload: true,
+              loading: () {
+                final user = AuthService.instance.currentUser;
+                if (user == null) return guestSignIn();
+                final profile = _withAuthEmail(
+                  MembershipService.instance.profileFromAuth(user),
+                );
+                return _MembershipBody(
+                  profile: profile,
+                  profileKey: _profileKey,
+                  editing: _editing,
+                  saving: _saving,
+                  saveError: _saveError,
+                  nameCtrl: _nameCtrl,
+                  emailCtrl: _emailCtrl,
+                  phoneCtrl: _phoneCtrl,
+                  onEdit: () => _startEditing(profile),
+                  onSave: _save,
+                  onCancelEdit: () {
+                    if (!_saving) {
+                      setState(() {
+                        _editing = false;
+                        _saveError = null;
+                      });
+                    }
+                  },
+                  onLogout: () async {
+                    await AuthService.instance.signOut();
+                    if (!context.mounted) return;
+                    context.goNamed(RouteNames.home);
+                  },
+                );
+              },
+              error: (_, _) {
+                final user = AuthService.instance.currentUser;
+                if (user == null) return guestSignIn();
+                final profile = _withAuthEmail(
+                  MembershipService.instance.profileFromAuth(user),
+                );
+                return _MembershipBody(
+                  profile: profile,
+                  profileKey: _profileKey,
+                  editing: _editing,
+                  saving: _saving,
+                  saveError: _saveError,
+                  nameCtrl: _nameCtrl,
+                  emailCtrl: _emailCtrl,
+                  phoneCtrl: _phoneCtrl,
+                  onEdit: () => _startEditing(profile),
+                  onSave: _save,
+                  onCancelEdit: () {
+                    if (!_saving) {
+                      setState(() {
+                        _editing = false;
+                        _saveError = null;
+                      });
+                    }
+                  },
+                  onLogout: () async {
+                    await AuthService.instance.signOut();
+                    if (!context.mounted) return;
+                    context.goNamed(RouteNames.home);
+                  },
+                );
+              },
+              data: (profile) {
+                if (profile == null) return guestSignIn();
+                final liveProfile = _withAuthEmail(profile);
+                return _MembershipBody(
+                  profile: liveProfile,
+                  profileKey: _profileKey,
+                  editing: _editing,
+                  saving: _saving,
+                  saveError: _saveError,
+                  nameCtrl: _nameCtrl,
+                  emailCtrl: _emailCtrl,
+                  phoneCtrl: _phoneCtrl,
+                  onEdit: () => _startEditing(liveProfile),
+                  onSave: _save,
+                  onCancelEdit: () {
+                    if (!_saving) {
+                      setState(() {
+                        _editing = false;
+                        _saveError = null;
+                      });
+                    }
+                  },
+                  onLogout: () async {
+                    await AuthService.instance.signOut();
+                    if (!context.mounted) return;
+                    context.goNamed(RouteNames.home);
+                  },
+                );
+              },
+            ),
     );
   }
 }

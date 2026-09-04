@@ -25,12 +25,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.login,
         name: RouteNames.login,
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) {
+          final redirect = state.uri.queryParameters['redirect'];
+          return LoginScreen(redirectTo: redirect);
+        },
       ),
       GoRoute(
         path: RoutePaths.register,
         name: RouteNames.register,
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) {
+          final redirect = state.uri.queryParameters['redirect'];
+          return RegisterScreen(redirectTo: redirect);
+        },
       ),
       GoRoute(
         path: RoutePaths.forgotPassword,
@@ -91,7 +97,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
               const SizedBox(height: 24),
               FilledButton(
-                onPressed: () => context.goNamed(RouteNames.login),
+                onPressed: () => context.goNamed(RouteNames.home),
                 child: const Text('Go home'),
               ),
             ],

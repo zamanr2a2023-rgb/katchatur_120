@@ -10,7 +10,10 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/logo.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.redirectTo});
+
+  /// Optional in-app path to open after successful login (e.g. `/membership`).
+  final String? redirectTo;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -22,6 +25,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final _email = TextEditingController();
   final _password = TextEditingController();
+
+  static const _allowedRedirects = {
+    RoutePaths.home,
+    RoutePaths.menu,
+    RoutePaths.membership,
+    RoutePaths.donate,
+  };
+
+  String get _safeRedirect {
+    final raw = widget.redirectTo?.trim() ?? '';
+    if (_allowedRedirects.contains(raw)) return raw;
+    return RoutePaths.home;
+  }
 
   @override
   void dispose() {
@@ -45,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _password.text,
       );
       if (!mounted) return;
-      context.goNamed(RouteNames.home);
+      context.go(_safeRedirect);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -217,7 +233,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     AppButton(
                       label: 'Create Account',
                       variant: AppButtonVariant.secondary,
-                      onPressed: () => context.pushNamed(RouteNames.register),
+                      onPressed: () {
+                        final redirect = widget.redirectTo?.trim();
+                        if (redirect != null && redirect.isNotEmpty) {
+                          context.push(
+                            '${RoutePaths.register}?redirect=${Uri.encodeComponent(redirect)}',
+                          );
+                        } else {
+                          context.pushNamed(RouteNames.register);
+                        }
+                      },
                     ),
                     const SizedBox(height: 28),
                     Text(

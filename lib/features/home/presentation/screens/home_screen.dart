@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../features/donate/data/donate_config.dart';
 import '../../../../features/menu/data/menu_slider_images.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_card.dart';
 import '../../../../shared/widgets/auto_image_carousel.dart';
@@ -19,10 +20,14 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membership = ref.watch(currentMembershipProvider).asData?.value;
+    final isSignedIn = ref.watch(authStateProvider).asData?.value != null ||
+        AuthService.instance.isSignedIn;
+    final membership = isSignedIn
+        ? ref.watch(currentMembershipProvider).asData?.value
+        : null;
     final donateConfig =
         ref.watch(donateConfigProvider).asData?.value ?? DonateConfig.defaults;
-    final firstName = membership?.firstName ?? 'Member';
+    final firstName = isSignedIn ? (membership?.firstName ?? 'Member') : 'Guest';
     final status = membership?.status ?? 'Active';
     final memberId = membership?.memberId ?? '—';
     final benefitLabel =
@@ -55,9 +60,11 @@ class HomeScreen extends ConsumerWidget {
                             color: AppColors.ink,
                           ),
                         ),
-                        const Text(
-                          'Good to see you again.',
-                          style: TextStyle(
+                        Text(
+                          isSignedIn
+                              ? 'Good to see you again.'
+                              : 'Browse the menu without an account.',
+                          style: const TextStyle(
                             fontSize: 12.5,
                             color: AppColors.mutedForeground,
                           ),
@@ -72,7 +79,11 @@ class HomeScreen extends ConsumerWidget {
                     ),
                     child: InkWell(
                       customBorder: const CircleBorder(),
-                      onTap: () => context.go(RoutePaths.membership),
+                      onTap: () => context.go(
+                        isSignedIn
+                            ? RoutePaths.membership
+                            : '${RoutePaths.login}?redirect=${Uri.encodeComponent(RoutePaths.membership)}',
+                      ),
                       child: const SizedBox(
                         width: 40,
                         height: 40,
@@ -98,85 +109,148 @@ class HomeScreen extends ConsumerWidget {
                 children: [
                   const SectionTitle(title: 'Quick access'),
                   const SizedBox(height: 12),
-                  AppCard(
-                    onTap: () => context.goNamed(RouteNames.membership),
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: AppColors.ink,
-                            borderRadius: BorderRadius.circular(16),
+                  if (isSignedIn)
+                    AppCard(
+                      onTap: () => context.goNamed(RouteNames.membership),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: AppColors.ink,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_2,
+                              color: AppColors.background,
+                              size: 24,
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.qr_code_2,
-                            color: AppColors.background,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  const Text(
-                                    'My Membership',
-                                    style: TextStyle(
-                                      fontSize: 15.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.ink,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    const Text(
+                                      'My Membership',
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.ink,
+                                      ),
                                     ),
-                                  ),
-                                  AppBadge(label: status),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '$memberId · View Membership',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: AppColors.mutedForeground,
+                                    AppBadge(label: status),
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 6),
-                              GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () => context.go(
-                                  '${RoutePaths.donate}?section=benefit',
-                                ),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 2),
-                                  child: Text(
-                                    benefitLabel,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary,
-                                    ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$memberId · View Membership',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.mutedForeground,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => context.go(
+                                    '${RoutePaths.donate}?section=benefit',
+                                  ),
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 2),
+                                    child: Text(
+                                      benefitLabel,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.mutedForeground,
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.mutedForeground,
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    AppCard(
+                      onTap: () => context.go(
+                        '${RoutePaths.login}?redirect=${Uri.encodeComponent(RoutePaths.membership)}',
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: AppColors.ink,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_2,
+                              color: AppColors.background,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'My Membership',
+                                  style: TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.ink,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Sign in to view your membership QR.',
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: AppColors.mutedForeground,
+                                  ),
+                                ),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Sign In',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right,
+                            color: AppColors.mutedForeground,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 12),
                   AppCard(
                     onTap: () => context.goNamed(RouteNames.menu),
