@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/donate/data/donate_config.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/auth_service.dart';
 import '../../../../services/donate_service.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -63,6 +64,14 @@ class _DonateScreenState extends ConsumerState<DonateScreen> {
 
   Future<void> _pay(DonateConfig config) async {
     if (!_canDonate) return;
+
+    if (!AuthService.instance.isSignedIn) {
+      context.go(
+        '${RoutePaths.login}?redirect=${Uri.encodeComponent(RoutePaths.donate)}',
+      );
+      return;
+    }
+
     setState(() => _processing = true);
 
     try {

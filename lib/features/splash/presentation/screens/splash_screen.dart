@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../routes/route_names.dart';
-import '../../../../services/auth_service.dart';
 import '../../../../shared/widgets/logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -25,8 +24,8 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _progress.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
-        final isSignedIn = AuthService.instance.isSignedIn;
-        context.goNamed(isSignedIn ? RouteNames.home : RouteNames.login);
+        // Guests and signed-in users both enter Home (Guideline 5.1.1(v)).
+        context.goNamed(RouteNames.home);
       }
     });
     _progress.forward();

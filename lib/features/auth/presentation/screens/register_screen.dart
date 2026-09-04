@@ -9,7 +9,10 @@ import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/logo.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.redirectTo});
+
+  /// Optional in-app path to open after successful registration.
+  final String? redirectTo;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -25,6 +28,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agree = false;
   bool _loading = false;
   String? _error;
+
+  static const _allowedRedirects = {
+    RoutePaths.home,
+    RoutePaths.menu,
+    RoutePaths.membership,
+    RoutePaths.donate,
+  };
+
+  String get _safeRedirect {
+    final raw = widget.redirectTo?.trim() ?? '';
+    if (_allowedRedirects.contains(raw)) return raw;
+    return RoutePaths.home;
+  }
+
+  void _goToLogin() {
+    final redirect = widget.redirectTo?.trim();
+    if (redirect != null && redirect.isNotEmpty) {
+      context.go(
+        '${RoutePaths.login}?redirect=${Uri.encodeComponent(redirect)}',
+      );
+    } else {
+      context.goNamed(RouteNames.login);
+    }
+  }
 
   @override
   void dispose() {
@@ -65,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           )
           .timeout(const Duration(seconds: 25));
       if (!mounted) return;
-      context.goNamed(RouteNames.home);
+      context.go(_safeRedirect);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -90,7 +117,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 children: [
                   _roundIconButton(
                     icon: Icons.arrow_back,
-                    onTap: () => context.goNamed(RouteNames.login),
+                    onTap: _goToLogin,
                   ),
                   const Spacer(),
                   const BrandLogo(size: LogoSize.sm),
@@ -270,8 +297,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               alignment: PlaceholderAlignment.baseline,
                               baseline: TextBaseline.alphabetic,
                               child: GestureDetector(
-                                onTap: () =>
-                                    context.goNamed(RouteNames.login),
+                                onTap: _goToLogin,
                                 child: const Text(
                                   'Log In',
                                   style: TextStyle(
