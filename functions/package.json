@@ -2,7 +2,7 @@
   "name": "bajatzu-functions",
   "description": "Firebase Cloud Functions for Bajatzu Stripe donations",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "private": true,

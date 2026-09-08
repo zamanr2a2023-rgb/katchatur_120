@@ -100,14 +100,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      await AuthService.instance.registerWithMembership(
-        fullName: _name.text,
-        email: _email.text,
-        phone: _phone.text,
-        password: _password.text,
-        proofFile: _proofFile!,
-        reviewPlatform: _platform,
-      );
+      await AuthService.instance
+          .registerWithMembership(
+            fullName: _name.text,
+            email: _email.text,
+            phone: _phone.text,
+            password: _password.text,
+            proofFile: _proofFile!,
+            reviewPlatform: _platform,
+          )
+          .timeout(const Duration(seconds: 25));
       if (!mounted) return;
       // Ignore preferred redirect until Active — gate on membership screen.
       assert(_allowedRedirects.contains(_postAuthPath));
@@ -116,8 +118,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
       setState(() {
         _error = AuthService.mapFirebaseErrorToMessage(e);
-        _loading = false;
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

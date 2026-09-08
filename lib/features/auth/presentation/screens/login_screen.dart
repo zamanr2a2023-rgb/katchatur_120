@@ -57,10 +57,12 @@ class _LoginScreenState extends State<LoginScreen> {
       _loading = true;
     });
     try {
-      final credential = await AuthService.instance.signInWithEmailPassword(
-        email: _email.text,
-        password: _password.text,
-      );
+      final credential = await AuthService.instance
+          .signInWithEmailPassword(
+            email: _email.text,
+            password: _password.text,
+          )
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
 
       // Auth can succeed when status != Active — always gate after Auth.
@@ -81,8 +83,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() {
         _error = AuthService.mapFirebaseErrorToMessage(e);
-        _loading = false;
       });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

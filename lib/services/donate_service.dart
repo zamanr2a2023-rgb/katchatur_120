@@ -77,14 +77,22 @@ class DonateService {
     required num amount,
     required String currency,
   }) async {
-    if (_auth.currentUser == null) {
+    final user = _auth.currentUser;
+    if (user == null) {
       throw StateError('Please sign in to donate.');
     }
 
-    final callable = _functions.httpsCallable('createCheckoutSession');
+    await user.getIdToken(true);
+
+    final callable = _functions.httpsCallable(
+      'createCheckoutSession',
+      options: HttpsCallableOptions(
+        timeout: const Duration(seconds: 25),
+      ),
+    );
     final result = await callable.call(<String, dynamic>{
       'amount': amount,
-      'currency': currency,
+      'currency': _toStripeCurrency(currency),
     });
     final data = Map<String, dynamic>.from(result.data as Map);
     final url = '${data['url'] ?? ''}';
@@ -95,8 +103,22 @@ class DonateService {
     return StripeCheckoutSession(sessionId: sessionId, url: url);
   }
 
+  static String _toStripeCurrency(String symbol) {
+    final value = symbol.trim().toLowerCase();
+    if (value == '€' || value == 'eur') return 'eur';
+    if (value == r'$' || value == 'usd') return 'usd';
+    if (value == '£' || value == 'gbp') return 'gbp';
+    if (RegExp(r'^[a-z]{3}$').hasMatch(value)) return value;
+    return 'eur';
+  }
+
   Future<bool> confirmDonation(String sessionId) async {
-    final callable = _functions.httpsCallable('confirmDonation');
+    final callable = _functions.httpsCallable(
+      'confirmDonation',
+      options: HttpsCallableOptions(
+        timeout: const Duration(seconds: 20),
+      ),
+    );
     final result = await callable.call(<String, dynamic>{
       'sessionId': sessionId,
     });
@@ -112,13 +134,35 @@ class DonateService {
         case 'invalid-argument':
           return error.message ?? 'Enter a valid donation amount.';
         case 'failed-precondition':
-          return 'Stripe is not configured yet. Add your Stripe secret key.';
+          return error.message?.trim().isNotEmpty == true
+              ? error.message!
+              : 'Stripe is not configured yet. Add your Stripe secret key in Firebase.';
+        case 'not-found':
+          return 'Payment is not ready yet. Deploy Stripe Cloud Functions first.';
+        case 'internal':
+        case 'unavailable':
+        case 'deadline-exceeded':
+          final raw = (error.message ?? '').trim();
+          if (raw.isEmpty || raw.toUpperCase() == 'INTERNAL') {
+            return 'Could not start payment. Please try again.';
+          }
+          if (raw.toLowerCase().contains('timeout') ||
+              raw.toLowerCase().contains('deadline')) {
+            return 'Payment service is taking too long. Please try again.';
+          }
+          return raw;
         default:
-          return error.message ??
-              'Could not start payment. Please try again.';
+          final fallback = (error.message ?? '').trim();
+          if (fallback.isEmpty || fallback.toUpperCase() == 'INTERNAL') {
+            return 'Could not start payment. Please try again.';
+          }
+          return fallback;
       }
     }
     final message = error.toString().toLowerCase();
+    if (message.contains('timeout') || message.contains('timed out')) {
+      return 'Payment service is taking too long. Please try again.';
+    }
     if (message.contains('not found') || message.contains('not-found')) {
       return 'Payment is not ready yet. Deploy Stripe Cloud Functions first.';
     }

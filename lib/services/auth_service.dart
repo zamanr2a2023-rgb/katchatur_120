@@ -92,6 +92,35 @@ class AuthService {
     await _auth.signOut();
   }
 
+  /// Reauthenticates, deletes the membership profile, then deletes the Auth user.
+  Future<void> deleteAccount({required String password}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('No signed-in user.');
+    }
+    final email = user.email?.trim() ?? '';
+    if (email.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'missing-email',
+        message: 'This account has no email to confirm deletion.',
+      );
+    }
+
+    final credential = EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+
+    try {
+      await MembershipService.instance.deleteCurrentMembership();
+    } catch (_) {
+      // Continue so the Auth account is still removed.
+    }
+
+    await user.delete();
+  }
+
   Future<UserCredential> createUserWithEmailPassword({
     required String email,
     required String password,
@@ -192,6 +221,10 @@ class AuthService {
           return 'Too many attempts. Please wait a moment and try again.';
         case 'network-request-failed':
           return 'Network error. Please check your connection and try again.';
+        case 'requires-recent-login':
+          return 'Please log in again, then try deleting your account.';
+        case 'user-mismatch':
+          return 'This password does not match the signed-in account.';
         case 'internal-error':
           if (message.contains('block')) {
             return 'This email is blocked from registering.';
@@ -203,6 +236,10 @@ class AuthService {
           }
           return 'Something went wrong. Please try again.';
       }
+    }
+
+    if (error is TimeoutException) {
+      return 'This is taking too long. Please check your connection and try again.';
     }
 
     if (error is FirebaseException) {
