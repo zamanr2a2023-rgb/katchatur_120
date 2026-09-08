@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Bajatzu needs photo access to upload your membership review proof.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Bajatzu needs camera access if you capture a membership review proof.</string>
 </dict>
 </plist>

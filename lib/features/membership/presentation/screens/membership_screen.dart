@@ -4,9 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../features/membership/data/member_profile.dart';
+import '../../../../features/membership/data/visit_record.dart';
+import '../../../../features/membership/presentation/screens/membership_status_screen.dart';
+import '../../../../features/membership/presentation/widgets/door_welcome_overlay.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../services/membership_service.dart';
+import '../../../../services/visit_welcome_service.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -28,6 +32,8 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
   bool _editing = false;
   bool _saving = false;
   String? _saveError;
+  String? _markedWelcomeId;
+  VisitRecord? _welcomeVisit;
 
   late final TextEditingController _nameCtrl;
   late final TextEditingController _emailCtrl;
@@ -40,6 +46,14 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
     _nameCtrl = TextEditingController();
     _emailCtrl = TextEditingController();
     _phoneCtrl = TextEditingController();
+
+    VisitWelcomeService.instance.pendingWelcome.addListener(_onPendingWelcome);
+    final pending = VisitWelcomeService.instance.pendingWelcome.value;
+    _welcomeVisit =
+        (pending != null && _isFreshEnough(pending)) ? pending : null;
+    if (pending != null && _welcomeVisit == null) {
+      VisitWelcomeService.instance.clearPending();
+    }
 
     if (widget.scrollToProfile) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,12 +69,43 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
     }
   }
 
+  void _onPendingWelcome() {
+    if (!mounted) return;
+    final visit = VisitWelcomeService.instance.pendingWelcome.value;
+    if (visit != null && !_isFreshEnough(visit)) {
+      VisitWelcomeService.instance.clearPending();
+      setState(() => _welcomeVisit = null);
+      return;
+    }
+    setState(() => _welcomeVisit = visit);
+  }
+
+  bool _isFreshEnough(VisitRecord visit) {
+    final scannedAt = visit.scannedAt;
+    if (scannedAt == null) return false;
+    final age = DateTime.now().difference(scannedAt);
+    return age <= VisitWelcomeService.freshnessWindow &&
+        age >= const Duration(seconds: -10);
+  }
+
   @override
   void dispose() {
+    VisitWelcomeService.instance.pendingWelcome.removeListener(_onPendingWelcome);
+    // Visit listener is owned by visitWelcomeBindingProvider (app-level).
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onWelcomePresented(VisitRecord visit) async {
+    if (_markedWelcomeId == visit.id) return;
+    _markedWelcomeId = visit.id;
+    await VisitWelcomeService.instance.markShown(visit);
+  }
+
+  void _onWelcomeDismissed() {
+    VisitWelcomeService.instance.clearPending();
   }
 
   Future<void> _save() async {
@@ -115,10 +160,89 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
     return profile.copyWith(email: authEmail);
   }
 
+  Widget _bodyForProfile(MemberProfile profile) {
+    return _MembershipBody(
+      profile: profile,
+      profileKey: _profileKey,
+      editing: _editing,
+      saving: _saving,
+      saveError: _saveError,
+      nameCtrl: _nameCtrl,
+      emailCtrl: _emailCtrl,
+      phoneCtrl: _phoneCtrl,
+      onEdit: () => _startEditing(profile),
+      onSave: _save,
+      onCancelEdit: () {
+        if (!_saving) {
+          setState(() {
+            _editing = false;
+            _saveError = null;
+          });
+        }
+      },
+      onLogout: () async {
+        await AuthService.instance.signOut();
+        if (!mounted) return;
+        context.goNamed(RouteNames.home);
+      },
+    );
+  }
+
+  Widget _missingProfile() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.person_off_outlined,
+              size: 48,
+              color: AppColors.mutedForeground,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Membership profile not found',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your account is signed in, but no membership document exists. Please contact support or register again.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.mutedForeground, height: 1.45),
+            ),
+            const SizedBox(height: 24),
+            AppButton(
+              label: 'Log Out',
+              variant: AppButtonVariant.secondary,
+              onPressed: () async {
+                await AuthService.instance.signOut();
+                if (!mounted) return;
+                context.goNamed(RouteNames.home);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final membershipAsync = ref.watch(currentMembershipProvider);
     final isSignedIn = AuthService.instance.isSignedIn;
+    final welcome = _welcomeVisit;
+
+    if (welcome != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onWelcomePresented(welcome);
+      });
+    }
 
     Widget guestSignIn() {
       return _ErrorState(
@@ -130,106 +254,55 @@ class _MembershipScreenState extends ConsumerState<MembershipScreen> {
       );
     }
 
-    return PhoneShell(
+    final shell = PhoneShell(
       nav: BottomNavTab.membership,
       child: !isSignedIn
           ? guestSignIn()
           : membershipAsync.when(
               skipLoadingOnReload: true,
-              loading: () {
-                final user = AuthService.instance.currentUser;
-                if (user == null) return guestSignIn();
-                final profile = _withAuthEmail(
-                  MembershipService.instance.profileFromAuth(user),
-                );
-                return _MembershipBody(
-                  profile: profile,
-                  profileKey: _profileKey,
-                  editing: _editing,
-                  saving: _saving,
-                  saveError: _saveError,
-                  nameCtrl: _nameCtrl,
-                  emailCtrl: _emailCtrl,
-                  phoneCtrl: _phoneCtrl,
-                  onEdit: () => _startEditing(profile),
-                  onSave: _save,
-                  onCancelEdit: () {
-                    if (!_saving) {
-                      setState(() {
-                        _editing = false;
-                        _saveError = null;
-                      });
-                    }
-                  },
-                  onLogout: () async {
-                    await AuthService.instance.signOut();
-                    if (!context.mounted) return;
-                    context.goNamed(RouteNames.home);
-                  },
-                );
-              },
-              error: (_, _) {
-                final user = AuthService.instance.currentUser;
-                if (user == null) return guestSignIn();
-                final profile = _withAuthEmail(
-                  MembershipService.instance.profileFromAuth(user),
-                );
-                return _MembershipBody(
-                  profile: profile,
-                  profileKey: _profileKey,
-                  editing: _editing,
-                  saving: _saving,
-                  saveError: _saveError,
-                  nameCtrl: _nameCtrl,
-                  emailCtrl: _emailCtrl,
-                  phoneCtrl: _phoneCtrl,
-                  onEdit: () => _startEditing(profile),
-                  onSave: _save,
-                  onCancelEdit: () {
-                    if (!_saving) {
-                      setState(() {
-                        _editing = false;
-                        _saveError = null;
-                      });
-                    }
-                  },
-                  onLogout: () async {
-                    await AuthService.instance.signOut();
-                    if (!context.mounted) return;
-                    context.goNamed(RouteNames.home);
-                  },
-                );
-              },
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (error, _) => _ErrorState(
+                message:
+                    'Could not load membership. Please try again.\n$error',
+                onRetry: () => ref.invalidate(currentMembershipProvider),
+              ),
               data: (profile) {
-                if (profile == null) return guestSignIn();
+                if (profile == null) return _missingProfile();
                 final liveProfile = _withAuthEmail(profile);
-                return _MembershipBody(
-                  profile: liveProfile,
-                  profileKey: _profileKey,
-                  editing: _editing,
-                  saving: _saving,
-                  saveError: _saveError,
-                  nameCtrl: _nameCtrl,
-                  emailCtrl: _emailCtrl,
-                  phoneCtrl: _phoneCtrl,
-                  onEdit: () => _startEditing(liveProfile),
-                  onSave: _save,
-                  onCancelEdit: () {
-                    if (!_saving) {
-                      setState(() {
-                        _editing = false;
-                        _saveError = null;
-                      });
-                    }
-                  },
-                  onLogout: () async {
-                    await AuthService.instance.signOut();
-                    if (!context.mounted) return;
-                    context.goNamed(RouteNames.home);
-                  },
-                );
+
+                if (!liveProfile.canAccessMemberHome) {
+                  return MembershipStatusScreen(
+                    profile: liveProfile,
+                    onSignedOut: () async {
+                      await AuthService.instance.signOut();
+                      if (!context.mounted) return;
+                      context.goNamed(RouteNames.home);
+                    },
+                  );
+                }
+
+                return _bodyForProfile(liveProfile);
               },
             ),
+    );
+
+    // Full-screen over shell (covers bottom nav) on the QR / membership screen.
+    return Stack(
+      children: [
+        shell,
+        if (welcome != null &&
+            isSignedIn &&
+            (membershipAsync.asData?.value?.canAccessMemberHome ?? false))
+          Positioned.fill(
+            child: DoorWelcomeOverlay(
+              key: ValueKey(welcome.id),
+              visit: welcome,
+              onDismissed: _onWelcomeDismissed,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -265,6 +338,8 @@ class _MembershipBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final benefitLabel = profile.benefitBadgeLabel;
+
     return Stack(
       children: [
         SafeArea(
@@ -318,6 +393,15 @@ class _MembershipBody extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (benefitLabel != null) ...[
+                      const SizedBox(height: 12),
+                      AppBadge(
+                        label: benefitLabel,
+                        backgroundColor:
+                            AppColors.primary.withValues(alpha: 0.22),
+                        foregroundColor: const Color(0xFFB6E8C8),
+                      ),
+                    ],
                     const SizedBox(height: 36),
                     Text(
                       'MEMBER',

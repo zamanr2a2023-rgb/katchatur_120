@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../services/auth_service.dart';
+import '../../../../services/membership_service.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -56,12 +57,26 @@ class _LoginScreenState extends State<LoginScreen> {
       _loading = true;
     });
     try {
-      await AuthService.instance.signInWithEmailPassword(
+      final credential = await AuthService.instance.signInWithEmailPassword(
         email: _email.text,
         password: _password.text,
       );
       if (!mounted) return;
-      context.go(_safeRedirect);
+
+      // Auth can succeed when status != Active — always gate after Auth.
+      final uid = credential.user?.uid;
+      if (uid == null) {
+        throw StateError('Sign-in failed. Please try again.');
+      }
+
+      final profile = await MembershipService.instance.getMembership(uid);
+      if (!mounted) return;
+
+      if (profile == null || !profile.canAccessMemberHome) {
+        context.go(RoutePaths.membership);
+      } else {
+        context.go(_safeRedirect);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

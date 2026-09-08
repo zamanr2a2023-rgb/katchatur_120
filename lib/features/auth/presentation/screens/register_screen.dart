@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../features/membership/data/membership_status.dart';
+import '../../../../features/membership/presentation/widgets/membership_proof_form.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/app_button.dart';
@@ -28,6 +31,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agree = false;
   bool _loading = false;
   String? _error;
+  XFile? _proofFile;
+  String _platform = ReviewPlatform.google;
 
   static const _allowedRedirects = {
     RoutePaths.home,
@@ -36,10 +41,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     RoutePaths.donate,
   };
 
-  String get _safeRedirect {
-    final raw = widget.redirectTo?.trim() ?? '';
-    if (_allowedRedirects.contains(raw)) return raw;
-    return RoutePaths.home;
+  String get _postAuthPath {
+    // New signups are always Pending — never enter member home yet.
+    return RoutePaths.membership;
   }
 
   void _goToLogin() {
@@ -63,6 +67,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  Future<void> _pickProof() async {
+    final file = await pickMembershipProof(context);
+    if (file == null || !mounted) return;
+    setState(() {
+      _proofFile = file;
+      _error = null;
+    });
+  }
+
   Future<void> _submit() async {
     if (_name.text.isEmpty ||
         !_email.text.contains('@') ||
@@ -77,6 +90,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = 'Your passwords do not match.');
       return;
     }
+    if (_proofFile == null) {
+      setState(() => _error = 'Please upload a review proof screenshot.');
+      return;
+    }
     setState(() {
       _error = null;
       _loading = true;
@@ -88,9 +105,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _email.text,
         phone: _phone.text,
         password: _password.text,
+        proofFile: _proofFile!,
+        reviewPlatform: _platform,
       );
       if (!mounted) return;
-      context.go(_safeRedirect);
+      // Ignore preferred redirect until Active — gate on membership screen.
+      assert(_allowedRedirects.contains(_postAuthPath));
+      context.go(_postAuthPath);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -147,7 +168,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Join Bajatzu and access your digital membership.',
+                      'Join Bajatzu with a review proof. Membership starts as Pending until approved.',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppColors.mutedForeground,
@@ -199,6 +220,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _confirm,
                       hint: 'Re-enter your password',
                       obscureText: true,
+                    ),
+                    const SizedBox(height: 20),
+                    MembershipProofForm(
+                      proofFile: _proofFile,
+                      platform: _platform,
+                      enabled: !_loading,
+                      onPickProof: _pickProof,
+                      onClearProof: () => setState(() => _proofFile = null),
+                      onPlatformChanged: (value) =>
+                          setState(() => _platform = value),
                     ),
                     const SizedBox(height: 16),
                     InkWell(
