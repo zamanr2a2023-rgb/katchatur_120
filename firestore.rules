@@ -1,30 +1,173 @@
 rules_version = '2';
 
+// Bajatzu Firestore — members + panel operators (admin / staff RBAC).
+// Cloud Functions (Admin SDK) bypass these rules.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // App configuration is read-only from the client (defaults are used if reads fail).
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function callerDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        callerDoc().get('role', '') == 'admin';
+    }
+
+    function isStaff() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        callerDoc().get('role', '') == 'staff' &&
+        callerDoc().get('staffMeta', {}).get('disabled', false) != true;
+    }
+
+    function hasPerm(p) {
+      return isAdmin() ||
+        (isStaff() && callerDoc().get('permissions', {}).get(p, false) == true);
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function deniesPanelEscalation() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'permissions', 'staffMeta']);
+    }
+
+    function createDeniesPanelRole() {
+      return !('role' in request.resource.data) ||
+        !(request.resource.data.role in ['admin', 'staff']);
+    }
+
+    // Membership signup: new member docs must start as Pending.
+    function createAsPendingMember(uid) {
+      return isSelf(uid) &&
+        createDeniesPanelRole() &&
+        request.resource.data.get('status', '') == 'Pending';
+    }
+
+    // Profile / resubmit: never self-set Active|Blocked|Deactivated;
+    // status changes only Rejected|Pending → Pending (resubmit / re-upload).
+    function selfStatusOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['status']) ||
+        (
+          request.resource.data.status == 'Pending' &&
+          resource.data.status in ['Pending', 'Rejected']
+        );
+    }
+
+    function selfUpdateAllowed(uid) {
+      return isSelf(uid) &&
+        deniesPanelEscalation() &&
+        selfStatusOk() &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny([
+            'memberDiscountPercent',
+            'reviewedAt',
+            'reviewedByAdminId'
+          ]) &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'fullName',
+            'photoURL',
+            'phone',
+            'email',
+            'reviewProofPath',
+            'reviewPlatform',
+            'submittedAt',
+            'rejectionReason',
+            'resubmissionCount',
+            'status',
+            'tier',
+            'memberId',
+            'qrPayload',
+            'createdAt'
+          ]);
+    }
+
+    function moderationUpdateAllowed() {
+      return hasPerm('customersModerate') &&
+        deniesPanelEscalation() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status']);
+    }
+
+    function benefitUpdateAllowed() {
+      return hasPerm('customersBenefit') &&
+        deniesPanelEscalation() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['memberDiscountPercent']);
+    }
+
+    // Approve / reject in one write (status + reason/discount + review meta).
+    function membershipDecisionAllowed() {
+      return hasPerm('membership') &&
+        deniesPanelEscalation() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            'status',
+            'memberDiscountPercent',
+            'reviewedAt',
+            'reviewedByAdminId',
+            'rejectionReason'
+          ]);
+    }
+
+    function adminCustomerUpdateAllowed() {
+      return isAdmin() && deniesPanelEscalation();
+    }
+
     match /app_config/{docId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
 
-    // Each user can read/write ONLY their own profile.
     match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isSelf(uid) ||
+        hasPerm('scanner') ||
+        hasPerm('customersRead') ||
+        hasPerm('dashboard') ||
+        hasPerm('customersModerate') ||
+        hasPerm('customersBenefit') ||
+        hasPerm('membership') ||
+        hasPerm('donations');
+
+      allow create: if createAsPendingMember(uid);
+
+      allow update: if selfUpdateAllowed(uid) ||
+        moderationUpdateAllowed() ||
+        benefitUpdateAllowed() ||
+        membershipDecisionAllowed() ||
+        adminCustomerUpdateAllowed();
+
+      allow delete: if isAdmin();
     }
 
-    // Donations are authoritative from Stripe webhook/backend only.
     match /donations/{docId} {
-      allow read: if false;
-      allow write: if false;
+      allow read: if hasPerm('donations');
+      allow write: if isAdmin();
     }
 
-    // Everything else: no access by default.
-    match /{document=**} {
-      allow read: if false;
-      allow write: if false;
+    // Door scan log. Members may read their own rows for the welcome overlay.
+    // Members must never create/update/delete visits.
+    match /visits/{visitId} {
+      allow read: if hasPerm('scanner') ||
+        hasPerm('customersRead') ||
+        isAdmin() ||
+        (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow create: if hasPerm('scanner');
+      allow update, delete: if isAdmin();
+    }
+
+    match /blocked_identifiers/{id} {
+      allow read, write: if hasPerm('customersModerate');
     }
   }
 }
-

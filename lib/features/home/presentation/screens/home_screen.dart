@@ -28,10 +28,12 @@ class HomeScreen extends ConsumerWidget {
     final donateConfig =
         ref.watch(donateConfigProvider).asData?.value ?? DonateConfig.defaults;
     final firstName = isSignedIn ? (membership?.firstName ?? 'Member') : 'Guest';
-    final status = membership?.status ?? 'Active';
+    final status = membership?.status ?? '—';
     final memberId = membership?.memberId ?? '—';
-    final benefitLabel =
-        '${donateConfig.memberBenefitPercent}% Member Benefit';
+    // Prefer per-user memberDiscountPercent (contract §10); no badge if none.
+    final benefitLabel = isSignedIn
+        ? membership?.benefitBadgeLabel
+        : '${donateConfig.memberBenefitPercent}% Member Benefit';
 
     return PhoneShell(
       nav: BottomNavTab.home,
@@ -159,25 +161,27 @@ class HomeScreen extends ConsumerWidget {
                                     color: AppColors.mutedForeground,
                                   ),
                                 ),
-                                const SizedBox(height: 6),
-                                GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => context.go(
-                                    '${RoutePaths.donate}?section=benefit',
-                                  ),
-                                  child: Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 2),
-                                    child: Text(
-                                      benefitLabel,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
+                                if (benefitLabel != null) ...[
+                                  const SizedBox(height: 6),
+                                  GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () => context.go(
+                                      '${RoutePaths.donate}?section=benefit',
+                                    ),
+                                    child: Padding(
+                                      padding:
+                                          const EdgeInsets.symmetric(vertical: 2),
+                                      child: Text(
+                                        benefitLabel,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primary,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                           ),

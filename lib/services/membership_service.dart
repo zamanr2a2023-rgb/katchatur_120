@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../features/membership/data/member_profile.dart';
+import '../features/membership/data/membership_status.dart';
+import 'membership_proof_storage.dart';
 
 class MembershipService {
   MembershipService._();
@@ -14,6 +18,7 @@ class MembershipService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _db.collection('users');
 
+  /// Auth-only placeholder for loading UI — never treated as a live membership.
   MemberProfile profileFromAuth(
     User user, {
     String? fullName,
@@ -32,7 +37,7 @@ class MembershipService {
       fullName: name,
       email: user.email ?? '',
       phone: phone?.trim() ?? '',
-      status: 'Active',
+      status: MembershipStatus.pending,
       memberId: memberId,
       tier: 'Bajatzu Member',
       createdAt: now,
@@ -40,12 +45,24 @@ class MembershipService {
     );
   }
 
+  /// Creates `users/{uid}` after Auth + proof upload.
+  /// Always writes `status: "Pending"`. Never sets discount / role / reviewed*.
   Future<MemberProfile> createMembership({
     required String uid,
     required String fullName,
     required String email,
     required String phone,
+    required String reviewProofPath,
+    required String reviewPlatform,
   }) async {
+    if (!ReviewPlatform.isValid(reviewPlatform)) {
+      throw StateError('reviewPlatform must be google or tripadvisor.');
+    }
+    if (reviewProofPath.trim().isEmpty ||
+        !reviewProofPath.startsWith('membership_proofs/')) {
+      throw StateError('reviewProofPath must be a Storage path.');
+    }
+
     final now = DateTime.now();
     final memberId = _generateMemberId(uid, now);
     final profile = MemberProfile(
@@ -53,22 +70,50 @@ class MembershipService {
       fullName: fullName.trim(),
       email: email.trim(),
       phone: phone.trim(),
-      status: 'Active',
+      status: MembershipStatus.pending,
       memberId: memberId,
       tier: 'Bajatzu Member',
       createdAt: now,
       qrPayload: 'bajatzu:$memberId:$uid',
+      reviewProofPath: reviewProofPath,
+      reviewPlatform: reviewPlatform,
+      submittedAt: now,
     );
 
-    try {
-      await _users
-          .doc(uid)
-          .set(profile.toMap(), SetOptions(merge: true))
-          .timeout(const Duration(seconds: 8));
-    } catch (_) {
-      // Auth still works even if Firestore is not enabled yet.
-    }
+    await _users
+        .doc(uid)
+        .set(
+          profile.toCreateMap(
+            reviewProofPath: reviewProofPath,
+            reviewPlatform: reviewPlatform,
+          ),
+        )
+        .timeout(const Duration(seconds: 15));
+
     return profile;
+  }
+
+  /// Upload new proof + create Pending membership (signup).
+  Future<MemberProfile> createMembershipWithProof({
+    required String uid,
+    required String fullName,
+    required String email,
+    required String phone,
+    required XFile proofFile,
+    required String reviewPlatform,
+  }) async {
+    final path = await MembershipProofStorage.instance.uploadProof(
+      uid: uid,
+      file: proofFile,
+    );
+    return createMembership(
+      uid: uid,
+      fullName: fullName,
+      email: email,
+      phone: phone,
+      reviewProofPath: path,
+      reviewPlatform: reviewPlatform,
+    );
   }
 
   Future<MemberProfile?> getMembership(String uid) async {
@@ -76,71 +121,76 @@ class MembershipService {
       final snap = await _users
           .doc(uid)
           .get(const GetOptions(source: Source.serverAndCache))
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 10));
       if (!snap.exists || snap.data() == null) return null;
       return MemberProfile.fromMap(uid, snap.data()!);
-    } catch (_) {
-      return null;
+    } on FirebaseException catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('MembershipService.getMembership failed: ${e.code} $e');
+        debugPrint('$st');
+      }
+      rethrow;
     }
   }
 
-  /// Returns existing membership, or creates one for older accounts.
-  Future<MemberProfile> getOrCreateCurrentMembership({
-    String? fullName,
-    String? phone,
+  /// Live membership doc while signed in. Prefer snapshots for Approve unlock.
+  Stream<MemberProfile?> watchCurrentMembership() {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return Stream.value(null);
+    }
+
+    return _users.doc(user.uid).snapshots().map((snap) {
+      if (!snap.exists || snap.data() == null) return null;
+      return MemberProfile.fromMap(user.uid, snap.data()!);
+    }).handleError((Object error, StackTrace stack) {
+      if (kDebugMode) {
+        debugPrint('MembershipService.watchCurrentMembership error: $error');
+        debugPrint('$stack');
+      }
+      throw error;
+    });
+  }
+
+  /// Rejected → Pending with a **new** Storage object. Clears rejectionReason.
+  Future<void> resubmitProof({
+    required XFile proofFile,
+    required String reviewPlatform,
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
       throw StateError('No signed-in user.');
     }
+    if (!ReviewPlatform.isValid(reviewPlatform)) {
+      throw StateError('reviewPlatform must be google or tripadvisor.');
+    }
 
     final existing = await getMembership(user.uid);
-    if (existing != null) return existing;
+    if (existing == null) {
+      throw StateError('Membership profile not found.');
+    }
+    if (existing.status != MembershipStatus.rejected) {
+      throw StateError('Resubmit is only allowed from Rejected status.');
+    }
 
-    return createMembership(
+    final path = await MembershipProofStorage.instance.uploadProof(
       uid: user.uid,
-      fullName: fullName?.trim().isNotEmpty == true
-          ? fullName!.trim()
-          : (user.displayName?.trim().isNotEmpty == true
-              ? user.displayName!.trim()
-              : 'Bajatzu Member'),
-      email: user.email ?? '',
-      phone: phone?.trim() ?? '',
+      file: proofFile,
     );
+
+    final previousCount = existing.resubmissionCount ?? 0;
+
+    await _users.doc(user.uid).update({
+      'status': MembershipStatus.pending,
+      'reviewProofPath': path,
+      'reviewPlatform': reviewPlatform,
+      'submittedAt': FieldValue.serverTimestamp(),
+      'resubmissionCount': previousCount + 1,
+      'rejectionReason': FieldValue.delete(),
+    }).timeout(const Duration(seconds: 15));
   }
 
-  /// Emits Auth fallback immediately, then Firestore when available.
-  Stream<MemberProfile?> watchCurrentMembership() async* {
-    final user = _auth.currentUser;
-    if (user == null) {
-      yield null;
-      return;
-    }
-
-    final fallback = profileFromAuth(user);
-    yield fallback;
-
-    try {
-      final remote = await getOrCreateCurrentMembership()
-          .timeout(const Duration(seconds: 8));
-      yield remote;
-    } catch (_) {
-      // Keep Auth fallback if Firestore API is disabled/unavailable.
-    }
-
-    try {
-      await for (final snap in _users.doc(user.uid).snapshots()) {
-        if (!snap.exists || snap.data() == null) {
-          yield fallback;
-          continue;
-        }
-        yield MemberProfile.fromMap(user.uid, snap.data()!);
-      }
-    } catch (_) {
-      // Ignore stream errors; fallback already shown.
-    }
-  }
-
+  /// Profile edits while Active — never includes `status` or admin fields.
   Future<void> updateProfile({
     required String fullName,
     required String phone,
@@ -150,7 +200,6 @@ class MembershipService {
       throw StateError('No signed-in user.');
     }
 
-    // Email is owned by Firebase Auth and cannot be changed here.
     final email = user.email?.trim() ?? '';
 
     if (user.displayName != fullName.trim()) {
@@ -158,18 +207,11 @@ class MembershipService {
       await user.reload();
     }
 
-    try {
-      await _users.doc(user.uid).set(
-        {
-          'fullName': fullName.trim(),
-          'email': email,
-          'phone': phone.trim(),
-        },
-        SetOptions(merge: true),
-      ).timeout(const Duration(seconds: 8));
-    } catch (_) {
-      // Profile still updated locally via Auth when Firestore is unavailable.
-    }
+    await _users.doc(user.uid).update({
+      'fullName': fullName.trim(),
+      'email': email,
+      'phone': phone.trim(),
+    }).timeout(const Duration(seconds: 10));
   }
 
   Future<void> deleteCurrentMembership() async {
