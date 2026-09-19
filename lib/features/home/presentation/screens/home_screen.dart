@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../features/donate/data/donate_config.dart';
 import '../../../../features/menu/data/menu_slider_images.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/app_links_service.dart';
 import '../../../../services/auth_service.dart';
 import '../../../../shared/providers/app_providers.dart';
 import '../../../../shared/widgets/app_card.dart';
@@ -15,6 +16,13 @@ import '../../../../shared/widgets/auto_image_carousel.dart';
 import '../../../../shared/widgets/logo.dart';
 import '../../../../shared/widgets/phone_shell.dart';
 
+/// TripAdvisor Certificate of Excellence / Travelers' Choice embed (2026).
+class _TripAdvisorCertificate {
+  static const reviewUrl =
+      'https://www.tripadvisor.com/Restaurant_Review-g188672-d2649018-Reviews-Bajatzu-Ostend_West_Flanders_Province.html';
+  static const badgeImageUrl =
+      'https://static.tacdn.com/img2/travelers_choice/widgets/tchotel_2026_L.png';
+}
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -405,11 +413,67 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  const _TripAdvisorExcellenceBadge(),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Native stand-in for the TripAdvisor Certificate of Excellence embed code.
+class _TripAdvisorExcellenceBadge extends StatelessWidget {
+  const _TripAdvisorExcellenceBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      onTap: () => AppLinksService.instance.openUrl(
+        _TripAdvisorCertificate.reviewUrl,
+      ),
+      color: AppColors.card,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        children: [
+          Image.network(
+            _TripAdvisorCertificate.badgeImageUrl,
+            width: double.infinity,
+            height: 200,
+            fit: BoxFit.contain,
+            semanticLabel: 'TripAdvisor Certificate of Excellence',
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return const SizedBox(
+                height: 200,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'TripAdvisor Travelers\' Choice 2026',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.mutedForeground,
+            ),
+          ),
+        ],
       ),
     );
   }
